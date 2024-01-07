@@ -1,6 +1,6 @@
 from secrets import randbits, randbelow
 from typing import Dict, List, Union, Optional
-from algebra.polynomials import PolynomialCoefficientRepresentation, PolynomialNTTRepresentation
+from math.polynomials import PolynomialCoefficientRepresentation, PolynomialNTTRepresentation
 def sample_polynomial_coefficient_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int, norm_bound: int, weight_bound: int) -> PolynomialCoefficientRepresentation:
     # Exactly weight non-zero coefficients
     num_coefs_to_gen: int = max(0, min(degree, weight_bound))

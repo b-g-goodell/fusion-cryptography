@@ -5,8 +5,8 @@ from typing import List
 
 import pytest
 
-from algebra.ntt import find_primitive_root, ntt_poly_mult
-from algebra.polynomials import (
+from math.ntt import find_primitive_root, ntt_poly_mult
+from math.polynomials import (
     PolynomialCoefficientRepresentation as Poly,
     PolynomialNTTRepresentation as PolyNTT,
     transform,

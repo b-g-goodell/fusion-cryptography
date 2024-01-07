@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Dict, List, Union
-from algebra.ntt import (
+from math.ntt import (
     cent,
     cooley_tukey_ntt,
     gentleman_sande_intt,
