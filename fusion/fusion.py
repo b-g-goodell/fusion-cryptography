@@ -141,31 +141,14 @@ for next_secpar in PREFIX_PARAMETERS:
     PREFIX_PARAMETERS[next_secpar]["bytes_for_poly_shuffle"] = tmp
 
 
-def sample_coefficient_matrix(
-    seed: Optional[int],
-    modulus: int,
-    degree: int,
-    root_order: int,
-    root: int,
-    inv_root: int,
-    num_rows: int,
-    num_cols: int,
-    norm_bound: int,
-    weight_bound: int,
-) -> GeneralMatrix:
+def sample_coefficient_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
+                              num_cols: int, norm_bound: int, weight_bound: int) -> GeneralMatrix:
     return GeneralMatrix(
         matrix=[
             [
-                sample_polynomial_coefficient_representation(
-                    modulus=modulus,
-                    degree=degree,
-                    root_order=root_order,
-                    root=root,
-                    inv_root=inv_root,
-                    norm_bound=norm_bound,
-                    weight_bound=weight_bound,
-                    seed=seed,
-                )
+                sample_polynomial_coefficient_representation(modulus=modulus, degree=degree, root=root,
+                                                             inv_root=inv_root, root_order=root_order,
+                                                             norm_bound=norm_bound, weight_bound=weight_bound)
                 for j in range(num_cols)
             ]
             for i in range(num_rows)
@@ -173,27 +156,13 @@ def sample_coefficient_matrix(
     )
 
 
-def sample_ntt_matrix(
-    seed: Optional[int],
-    modulus: int,
-    degree: int,
-    root_order: int,
-    root: int,
-    inv_root: int,
-    num_rows: int,
-    num_cols: int,
-) -> GeneralMatrix:
+def sample_ntt_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
+                      num_cols: int) -> GeneralMatrix:
     return GeneralMatrix(
         matrix=[
             [
-                sample_polynomial_ntt_representation(
-                    modulus=modulus,
-                    degree=degree,
-                    root_order=root_order,
-                    root=root,
-                    inv_root=inv_root,
-                    seed=seed,
-                )
+                sample_polynomial_ntt_representation(modulus=modulus, degree=degree, root=root, inv_root=inv_root,
+                                                     root_order=root_order)
                 for j in range(num_cols)
             ]
             for i in range(num_rows)
@@ -231,7 +200,7 @@ class Params(object):
     bytes_for_one_coef_bdd_by_beta_ag: int
     bytes_for_poly_shuffle: int
 
-    def __init__(self, secpar: int, seed: Optional[int]):
+    def __init__(self, secpar: int):
         if secpar in PREFIX_PARAMETERS:
             self.secpar = secpar
             self.capacity = PREFIX_PARAMETERS[secpar]["capacity"]
@@ -270,16 +239,10 @@ class Params(object):
             self.omega_ch = PREFIX_PARAMETERS[secpar]["omega_ch"]
             self.omega_ag = PREFIX_PARAMETERS[secpar]["omega_ag"]
             self.omega_vf = PREFIX_PARAMETERS[secpar]["omega_vf"]
-            self.public_challenge = sample_ntt_matrix(
-                seed=seed,
-                modulus=self.modulus,
-                degree=self.degree,
-                root_order=self.root_order,
-                root=self.root,
-                inv_root=self.inv_root,
-                num_rows=self.num_rows_pub_challenge,
-                num_cols=self.num_cols_pub_challenge,
-            )
+            self.public_challenge = sample_ntt_matrix(modulus=self.modulus, degree=self.degree,
+                                                      root_order=self.root_order, root=self.root,
+                                                      inv_root=self.inv_root, num_rows=self.num_rows_pub_challenge,
+                                                      num_cols=self.num_cols_pub_challenge)
 
     def __str__(self) -> str:
         return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_rows_vk={self.num_rows_vk}, num_cols_pub_challenge={self.num_cols_pub_challenge}, num_cols_sk={self.num_cols_sk}, num_cols_vk={self.num_cols_vk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_poly_shuffle={self.bytes_for_poly_shuffle})"
@@ -291,8 +254,8 @@ class Params(object):
         return self.__dict__ == other.__dict__
 
 
-def fusion_setup(secpar: int, seed: Optional[int]) -> Params:
-    return Params(secpar=secpar, seed=seed)
+def fusion_setup(secpar: int) -> Params:
+    return Params(secpar=secpar)
 
 
 class OneTimeSigningKey(object):
@@ -335,31 +298,17 @@ class OneTimeVerificationKey(object):
 OneTimeKeyTuple = Tuple[OneTimeSigningKey, OneTimeVerificationKey]
 
 
-def keygen(params: Params, seed: Optional[int]) -> OneTimeKeyTuple:
-    left_key_coefs: GeneralMatrix = sample_coefficient_matrix(
-        seed=seed,
-        modulus=params.modulus,
-        degree=params.degree,
-        root_order=params.root_order,
-        root=params.root,
-        inv_root=params.inv_root,
-        num_rows=params.num_rows_sk,
-        num_cols=params.num_cols_sk,
-        norm_bound=params.beta_sk,
-        weight_bound=params.omega_sk,
-    )
-    right_key_coefs: GeneralMatrix = sample_coefficient_matrix(
-        seed=seed + 1,
-        modulus=params.modulus,
-        degree=params.degree,
-        root_order=params.root_order,
-        root=params.root,
-        inv_root=params.inv_root,
-        num_rows=params.num_rows_sk,
-        num_cols=params.num_cols_sk,
-        norm_bound=params.beta_sk,
-        weight_bound=params.omega_sk,
-    )
+def keygen(params: Params) -> OneTimeKeyTuple:
+    left_key_coefs: GeneralMatrix = sample_coefficient_matrix(modulus=params.modulus, degree=params.degree,
+                                                              root_order=params.root_order, root=params.root,
+                                                              inv_root=params.inv_root, num_rows=params.num_rows_sk,
+                                                              num_cols=params.num_cols_sk, norm_bound=params.beta_sk,
+                                                              weight_bound=params.omega_sk)
+    right_key_coefs: GeneralMatrix = sample_coefficient_matrix(modulus=params.modulus, degree=params.degree,
+                                                               root_order=params.root_order, root=params.root,
+                                                               inv_root=params.inv_root, num_rows=params.num_rows_sk,
+                                                               num_cols=params.num_cols_sk, norm_bound=params.beta_sk,
+                                                               weight_bound=params.omega_sk)
     left_sk_hat: GeneralMatrix = GeneralMatrix(
         matrix=[[transform(y) for y in z] for z in left_key_coefs.matrix]
     )
@@ -368,9 +317,8 @@ def keygen(params: Params, seed: Optional[int]) -> OneTimeKeyTuple:
     )
     left_vk_hat: GeneralMatrix = params.public_challenge * left_sk_hat
     right_vk_hat: GeneralMatrix = params.public_challenge * right_sk_hat
-    return OneTimeSigningKey(
-        seed=seed, left_sk_hat=left_sk_hat, right_sk_hat=right_sk_hat
-    ), OneTimeVerificationKey(left_vk_hat=left_vk_hat, right_vk_hat=right_vk_hat)
+    return (OneTimeSigningKey(left_sk_hat=left_sk_hat, right_sk_hat=right_sk_hat),
+            OneTimeVerificationKey(left_vk_hat=left_vk_hat, right_vk_hat=right_vk_hat))
 
 
 class SignatureChallenge(object):

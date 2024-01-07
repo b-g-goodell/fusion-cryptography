@@ -889,16 +889,9 @@ def test_sample_polynomial_coefficient_representation():
     norm_bound: int = 1000
     weight_bound: int = 100
     seed: int = 123456789
-    f: Poly = sample_polynomial_coefficient_representation(
-        modulus=modulus,
-        degree=degree,
-        root=root,
-        inv_root=inv_root,
-        root_order=root_order,
-        norm_bound=norm_bound,
-        weight_bound=weight_bound,
-        seed=seed,
-    )
+    f: Poly = sample_polynomial_coefficient_representation(modulus=modulus, degree=degree, root=root, inv_root=inv_root,
+                                                           root_order=root_order, norm_bound=norm_bound,
+                                                           weight_bound=weight_bound)
     assert isinstance(f, Poly)
     assert f.modulus == modulus
     assert f.degree == degree

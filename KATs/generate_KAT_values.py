@@ -35,7 +35,7 @@ functions = {
 
 for secpar in secpar_values:
     seed_a = random.randint(0, 2**32 - 1)
-    params = fusion_setup(secpar, seed_a)
+    params = fusion_setup(secpar)
 
     file_path = os.path.join(dir_name, f"fusion_setup_KAT_{secpar}.csv")
     with open(file_path, "a", newline="") as file:
@@ -57,7 +57,7 @@ for secpar in secpar_values:
     for i in range(10):
         random_seed_sks += [random.randint(0, 2**32 - 1)]
         random_msgs += [str(i)]
-        otks += [keygen(params, random_seed_sks[i])]
+        otks += [keygen(params)]
 
         file_path = os.path.join(dir_name, f"fusion_keygen_KAT_{secpar}.csv")
         with open(file_path, "a", newline="") as file:

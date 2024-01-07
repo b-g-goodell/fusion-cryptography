@@ -42,11 +42,11 @@ num_signatures: int = 2
 # 1. Set up the cryptographic system using a security parameter and a seed
 secpar: int = 256
 seed: int = 42
-a: Params = fusion_setup(secpar, seed)
+a: Params = fusion_setup(secpar)
 print(f"Setup completed with security parameter {secpar} and seed {seed}.")
 
 # 2. Generate N one-time key pairs
-keys: List[OneTimeKeyTuple] = [keygen(a, seed) for _ in range(2)]
+keys: List[OneTimeKeyTuple] = [keygen(a) for _ in range(2)]
 print(f"Generated {len(keys)} key pairs.")
 
 # 3. Sign N messages using the key pairs

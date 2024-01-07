@@ -42,20 +42,12 @@ TEST_SAMPLE_SIZE: int = 2**5
 
 def test_sample_coefficient_matrix():
     # Setup
-    params: Params = fusion_setup(secpar=128, seed=TEST_SEED)
+    params: Params = fusion_setup(secpar=128)
 
-    x: GeneralMatrix = sample_coefficient_matrix(
-        seed=TEST_SEED,
-        modulus=params.modulus,
-        degree=params.degree,
-        root_order=params.root_order,
-        root=params.root,
-        inv_root=params.inv_root,
-        num_rows=1,
-        num_cols=1,
-        norm_bound=1,
-        weight_bound=1,
-    )
+    x: GeneralMatrix = sample_coefficient_matrix(modulus=params.modulus, degree=params.degree,
+                                                 root_order=params.root_order, root=params.root,
+                                                 inv_root=params.inv_root, num_rows=1, num_cols=1, norm_bound=1,
+                                                 weight_bound=1)
     assert len(x.matrix) == 1
     assert all([len(row) == 1 for row in x.matrix])
     assert all(hasattr(z, "norm") for y in x.matrix for z in y)
@@ -63,18 +55,10 @@ def test_sample_coefficient_matrix():
     assert 0 <= x.norm(p="infty") <= 1
     assert 0 <= x.weight() <= 1
 
-    x: GeneralMatrix = sample_coefficient_matrix(
-        seed=TEST_SEED,
-        modulus=params.modulus,
-        degree=params.degree,
-        root_order=params.root_order,
-        root=params.root,
-        inv_root=params.inv_root,
-        num_rows=2,
-        num_cols=3,
-        norm_bound=17,
-        weight_bound=16,
-    )
+    x: GeneralMatrix = sample_coefficient_matrix(modulus=params.modulus, degree=params.degree,
+                                                 root_order=params.root_order, root=params.root,
+                                                 inv_root=params.inv_root, num_rows=2, num_cols=3, norm_bound=17,
+                                                 weight_bound=16)
     assert len(x.matrix) == 2
     assert all([len(row) == 3 for row in x.matrix])
     assert all(hasattr(z, "norm") for y in x.matrix for z in y)
@@ -85,41 +69,25 @@ def test_sample_coefficient_matrix():
 
 def test_sample_ntt_matrix():
     # Setup
-    params: Params = fusion_setup(secpar=128, seed=TEST_SEED)
+    params: Params = fusion_setup(secpar=128)
 
-    x: GeneralMatrix = sample_ntt_matrix(
-        seed=TEST_SEED,
-        modulus=params.modulus,
-        degree=params.degree,
-        root_order=params.root_order,
-        root=params.root,
-        inv_root=params.inv_root,
-        num_rows=1,
-        num_cols=1,
-    )
+    x: GeneralMatrix = sample_ntt_matrix(modulus=params.modulus, degree=params.degree, root_order=params.root_order,
+                                         root=params.root, inv_root=params.inv_root, num_rows=1, num_cols=1)
     assert len(x.matrix) == 1
     assert all([len(row) == 1 for row in x.matrix])
 
-    x: GeneralMatrix = sample_ntt_matrix(
-        seed=TEST_SEED,
-        modulus=params.modulus,
-        degree=params.degree,
-        root_order=params.root_order,
-        root=params.root,
-        inv_root=params.inv_root,
-        num_rows=2,
-        num_cols=3,
-    )
+    x: GeneralMatrix = sample_ntt_matrix(modulus=params.modulus, degree=params.degree, root_order=params.root_order,
+                                         root=params.root, inv_root=params.inv_root, num_rows=2, num_cols=3)
     assert len(x.matrix) == 2
     assert all([len(row) == 3 for row in x.matrix])
 
 
 def test_params_and_fusion_setup():
     for next_secpar in [128, 256]:
-        expected_params: Params = Params(secpar=next_secpar, seed=TEST_SEED)
+        expected_params: Params = Params(secpar=next_secpar)
         expected_str: str = expected_params.__str__()
         expected_repr: str = expected_params.__repr__()
-        observed_params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        observed_params: Params = fusion_setup(secpar=next_secpar)
         observed_str: str = observed_params.__str__()
         observed_repr: str = observed_params.__repr__()
 
@@ -308,10 +276,10 @@ def test_key_classes():
 def test_keygen():
     for next_secpar in [128, 256]:
         # Setup
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
 
         # Keygen
-        otk: OneTimeKeyTuple = keygen(params=params, seed=TEST_SEED + 1)
+        otk: OneTimeKeyTuple = keygen(params=params)
         assert isinstance(otk, tuple)
         assert len(otk) == 2
         assert isinstance(otk[0], OneTimeSigningKey)
@@ -367,7 +335,7 @@ def test_signature_class():
 
 def test_hash_message_to_int(mocker):
     for next_secpar in [128, 256]:
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
 
         message = "my_message"
         expected_result = 1234567890
@@ -397,8 +365,8 @@ def test_hash_message_to_int(mocker):
 def test_hash_vk_and_int_to_bytes(mocker):
     for next_secpar in [128, 256]:
         # Create sample Params and OneTimeVerificationKey objects
-        params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
-        keys = keygen(params, seed=TEST_SEED + 1)
+        params = fusion_setup(secpar=next_secpar)
+        keys = keygen(params)
         otsk, otvk = keys
 
         pre_hashed_message = 1234567890
@@ -437,7 +405,7 @@ def test_hash_vk_and_int_to_bytes(mocker):
 
 def test_decode_bytes_to_polynomial_coefficients():
     for next_secpar in [128, 256]:
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
         for next_omega in range(1, 12):
             for next_beta in range(1, 12):
                 num_coefs: int = max(0, min(params.degree, next_omega))
@@ -561,7 +529,7 @@ def test_decode_bytes_to_polynomial_coefficient_redux():
 def test_parse_challenge(mocker):
     for next_secpar in [128, 256]:
         # Setup
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
         num_coefs: int = max(0, min(params.degree, params.omega_ch))
         bound: int = max(0, min(params.modulus // 2, params.beta_ch))
         bytes_per_coefficient: int = ceil((log2(bound) + 1 + next_secpar) / 8)
@@ -607,8 +575,8 @@ def test_parse_challenge(mocker):
 def test_hash_ch_mocked(mocker):
     for next_secpar in [128, 256]:
         # Correctness depends on correctness of hash_message_to_int and hash_vk_and_int_to_bytes and parse_challenge
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
-        keys = keygen(params, seed=TEST_SEED + 1)
+        params: Params = fusion_setup(secpar=next_secpar)
+        keys = keygen(params)
         otsk, otvk = keys
         msg = "my_message"
         i = hash_message_to_int(params=params, message=msg)
@@ -659,8 +627,8 @@ def test_hash_ch_mocked(mocker):
 
 def test_hash_ch():
     for next_secpar in [128, 256]:
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
-        keys: OneTimeKeyTuple = keygen(params=params, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
+        keys: OneTimeKeyTuple = keygen(params=params)
         sk: OneTimeSigningKey
         vk: OneTimeVerificationKey
         sk, vk = keys
@@ -693,13 +661,13 @@ def test_hash_ch():
 
 def test_sign():
     for next_secpar in [128, 256]:
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
         omega_v_prime: int = min(params.degree, params.omega_sk * (1 + params.omega_ch))
         beta_v_prime: int = params.beta_sk * (
             1 + min(params.degree, params.omega_sk, params.omega_ch) * params.beta_ch
         )
 
-        keys: OneTimeKeyTuple = keygen(params=params, seed=TEST_SEED)
+        keys: OneTimeKeyTuple = keygen(params=params)
         sk: OneTimeSigningKey
         vk: OneTimeVerificationKey
         sk, vk = keys
@@ -762,10 +730,10 @@ def test_aggregate():
 def test_one_sig():
     for next_secpar in [128, 256]:
         # Setup
-        params: Params = fusion_setup(secpar=128, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=128)
 
         # Keygen
-        otk: OneTimeKeyTuple = keygen(params=params, seed=TEST_SEED + 1)
+        otk: OneTimeKeyTuple = keygen(params=params)
         sk: OneTimeSigningKey = otk[0]
         seed: int = sk.seed
         sk_left_sk_hat: GeneralMatrix = sk.left_sk_hat
@@ -812,12 +780,12 @@ def test_one_sig():
 def test_many_sigs():
     for next_secpar in [128, 256]:
         # Setup
-        params: Params = fusion_setup(secpar=next_secpar, seed=TEST_SEED)
+        params: Params = fusion_setup(secpar=next_secpar)
 
         for num_keys in range(1, 5):
             # Keygen
             otks: List[OneTimeKeyTuple] = [
-                keygen(params=params, seed=TEST_SEED + 1) for _ in range(num_keys)
+                keygen(params=params) for _ in range(num_keys)
             ]
 
             sks: List[OneTimeSigningKey]
