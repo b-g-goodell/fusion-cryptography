@@ -1,15 +1,13 @@
 from hashlib import shake_256, sha3_256
 from math import ceil, log2
 from typing import List, Optional, Tuple
-
 from algebra.matrices import GeneralMatrix
 from algebra.polynomials import (
     PolynomialCoefficientRepresentation,
     PolynomialNTTRepresentation,
-    sample_polynomial_ntt_representation,
     transform,
-    sample_polynomial_coefficient_representation,
 )
+from algebra.sampling import sample_polynomial_coefficient_representation, sample_polynomial_ntt_representation
 
 # This implementation is not secure for prod, toy prototype only.
 
@@ -259,24 +257,23 @@ def fusion_setup(secpar: int) -> Params:
 
 
 class OneTimeSigningKey(object):
-    seed: Optional[int]
     left_sk_hat: GeneralMatrix
     right_sk_hat: GeneralMatrix
 
     def __init__(
         self,
-        seed: Optional[int],
         left_sk_hat: GeneralMatrix,
         right_sk_hat: GeneralMatrix,
     ):
-        self.seed = seed
         self.left_sk_hat = left_sk_hat
         self.right_sk_hat = right_sk_hat
 
     def __str__(self):
-        return f"OneTimeSigningKey(seed={self.seed}, left_sk_hat={str(self.left_sk_hat)}, right_sk_hat={str(self.right_sk_hat)})"
+        # Do not print your key.
+        return f"OneTimeSigningKey(left_sk_hat={str(self.left_sk_hat)}, right_sk_hat={str(self.right_sk_hat)})"
 
     def __repr__(self):
+        # Do not print your key.
         return self.__str__()
 
 

@@ -1,7 +1,5 @@
 from copy import deepcopy
-from random import seed as random_seed, randrange
-from typing import Dict, List, Union, Optional
-
+from typing import Dict, List, Union
 from algebra.ntt import (
     cent,
     cooley_tukey_ntt,
@@ -411,8 +409,6 @@ def transform(
         )
     elif isinstance(x, PolynomialNTTRepresentation):
         x_vals: List[int] = deepcopy(x.values)
-        root_powers = [pow(x.root, i, x.modulus) for i in range(x.degree)]
-        bit_rev_root_powers = bit_reverse_copy(val=root_powers)
         inv_root_powers = [pow(x.inv_root, i, x.modulus) for i in range(x.degree)]
         bit_rev_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
         gentleman_sande_intt(
@@ -432,57 +428,3 @@ def transform(
     else:
         raise NotImplementedError(f"Transform for {type(x)} not implemented")
 
-
-def sample_polynomial_coefficient_representation(
-    modulus: int,
-    degree: int,
-    root: int,
-    inv_root: int,
-    root_order: int,
-    norm_bound: int,
-    weight_bound: int,
-    seed: Optional[int],
-) -> PolynomialCoefficientRepresentation:
-    # Exactly weight non-zero coefficients
-    if seed is not None:
-        random_seed(seed)
-    num_coefs_to_gen: int = max(0, min(degree, weight_bound))
-    bound: int = max(0, min(modulus // 2, norm_bound))
-    coefficients: List[int] = [
-        (1 + randrange(bound)) * (1 - 2 * randrange(2)) for _ in range(num_coefs_to_gen)
-    ]
-    coefficients += [0 for _ in range(degree - len(coefficients))]
-    if num_coefs_to_gen < degree:
-        # fisher-yates shuffle
-        for i in range(degree - 1, 0, -1):
-            j = randrange(i + 1)
-            coefficients[i], coefficients[j] = coefficients[j], coefficients[i]
-    return PolynomialCoefficientRepresentation(
-        modulus=modulus,
-        degree=degree,
-        root=root,
-        inv_root=inv_root,
-        root_order=root_order,
-        coefficients=coefficients,
-    )
-
-
-def sample_polynomial_ntt_representation(
-    modulus: int,
-    degree: int,
-    root: int,
-    inv_root: int,
-    root_order: int,
-    seed: Optional[int],
-) -> PolynomialNTTRepresentation:
-    if seed is not None:
-        random_seed(seed)
-    values: List[int] = [randrange(modulus) - (modulus // 2) for _ in range(degree)]
-    return PolynomialNTTRepresentation(
-        modulus=modulus,
-        degree=degree,
-        root=root,
-        inv_root=inv_root,
-        root_order=root_order,
-        values=values,
-    )
