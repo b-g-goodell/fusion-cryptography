@@ -1,6 +1,6 @@
 from typing import List
 from algebra.polynomials import transform
-from fusion.fusion import PREFIX_PARAMETERS, GeneralMatrix, PolynomialNTTRepresentation, hash_ch
+from fusion.fusion import PREFIX_PARAMETERS, GeneralMatrix, PolynomialNTTRepresentation, _hash_ch
 from api.fusion_api import setup, generate_keys, generate_signature, aggregate_signatures, verify_aggregated_signature, Params, OneTimeKeyTuple, Signature, OneTimeVerificationKey, OneTimeSigningKey, SignatureChallenge
 from secrets import randbelow
 
@@ -105,7 +105,7 @@ def test_generate_signature():
         otvk: OneTimeVerificationKey
         otsk, otvk = otk.otsk, otk.otvk
         message: str = "Hello, world!"
-        ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=message)
+        ch: SignatureChallenge = _hash_ch(params=params, key=otvk, message=message)
         sig: Signature = generate_signature(params=params, key_pair=otk, message=message)
         assert isinstance(sig, Signature)
         assert isinstance(sig.signature_hat, GeneralMatrix)

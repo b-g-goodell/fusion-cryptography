@@ -250,14 +250,14 @@ class Signature(object):
         return self.__str__()
 
 
-def hash_message_to_int(params: Params, message: str) -> int:
+def _hash_message_to_int(params: Params, message: str) -> int:
     # hash the message m with keccak/SHA3-256
     salted_message = (params.sign_pre_hash_dst.decode("utf-8") + "," + message).encode()
     pre_hashed_message = sha3_256(salted_message).digest()
     return int.from_bytes(pre_hashed_message, byteorder="little")
 
 
-def hash_vk_and_int_to_bytes(
+def _hash_vk_and_int_to_bytes(
     params: Params, key: OneTimeVerificationKey, i: int, n: int
 ) -> bytes:
     # assuming `key` can be represented as string
@@ -267,7 +267,7 @@ def hash_vk_and_int_to_bytes(
     return shake_256(x).digest(n)
 
 
-def decode_bytes_to_polynomial_coefficients(
+def _decode_bytes_to_polynomial_coefficients(
     b: bytes,
     log2_bias: int,
     modulus: int,
@@ -329,21 +329,16 @@ def decode_bytes_to_polynomial_coefficients(
     return coefficients
 
 
-def parse_challenge(params: Params, b: bytes) -> PolynomialNTTRepresentation:
+def _parse_challenge(params: Params, b: bytes) -> PolynomialNTTRepresentation:
     if (
         len(b)
         < params.omega_ch * params.bytes_for_one_coef_bdd_by_beta_ch
         + params.bytes_for_poly_shuffle
     ):
         raise ValueError("hashed_vk_and_pre_hashed_message is too short")
-    c_coefs: List[int] = decode_bytes_to_polynomial_coefficients(
-        b=b,
-        log2_bias=params.secpar,
-        modulus=params.modulus,
-        degree=params.degree,
-        norm_bound=params.beta_ch,
-        weight_bound=params.omega_ch,
-    )
+    c_coefs: List[int] = _decode_bytes_to_polynomial_coefficients(b=b, log2_bias=params.secpar, modulus=params.modulus,
+                                                                  degree=params.degree, norm_bound=params.beta_ch,
+                                                                  weight_bound=params.omega_ch)
     c: PolynomialCoefficientRepresentation = PolynomialCoefficientRepresentation(
         modulus=params.modulus,
         degree=params.degree,
@@ -356,10 +351,10 @@ def parse_challenge(params: Params, b: bytes) -> PolynomialNTTRepresentation:
     return c_hat
 
 
-def hash_ch(
+def _hash_ch(
     params: Params, key: OneTimeVerificationKey, message: str
 ) -> SignatureChallenge:
-    pre_hashed_message: int = hash_message_to_int(params=params, message=message)
+    pre_hashed_message: int = _hash_message_to_int(params=params, message=message)
     num_coefs: int = max(0, min(params.degree, params.omega_ch))
     bound: int = max(0, min(params.modulus // 2, params.beta_ch))
     bytes_per_coefficient: int = ceil((log2(bound) + 1 + params.secpar) / 8)
@@ -370,12 +365,8 @@ def hash_ch(
         + bytes_per_coefficient * num_coefs
         + params.degree * bytes_per_index
     )
-    chall_as_bytes: bytes = hash_vk_and_int_to_bytes(
-        params=params, key=key, i=pre_hashed_message, n=n
-    )
-    parsed_chall: PolynomialNTTRepresentation = parse_challenge(
-        params=params, b=chall_as_bytes
-    )
+    chall_as_bytes: bytes = _hash_vk_and_int_to_bytes(params=params, key=key, i=pre_hashed_message, n=n)
+    parsed_chall: PolynomialNTTRepresentation = _parse_challenge(params=params, b=chall_as_bytes)
     return SignatureChallenge(c_hat=parsed_chall)
 
 
@@ -383,9 +374,8 @@ def sign(params: Params, otk: OneTimeKeyTuple, msg: str) -> Signature:
     otsk: OneTimeSigningKey  # type
     otvk: OneTimeVerificationKey  # type
     otsk, otvk = otk.otsk, otk.otvk  # unpack keys
-    pre_hashed_message: int = hash_message_to_int(
-        params=params, message=msg
-    )  # pre-hash the message before hashing with vk
+    pre_hashed_message: int = _hash_message_to_int(params=params,
+                                                   message=msg)  # pre-hash the message before hashing with vk
     num_coefs: int = max(0, min(params.degree, params.omega_ch))
     bound: int = max(0, min(params.modulus // 2, params.beta_ch))
     bytes_per_coefficient: int = ceil((log2(bound) + 1 + params.secpar) / 8)
@@ -396,12 +386,9 @@ def sign(params: Params, otk: OneTimeKeyTuple, msg: str) -> Signature:
         + bytes_per_coefficient * num_coefs
         + params.degree * bytes_per_index
     )
-    hashed_vk_and_pre_hashed_message: bytes = hash_vk_and_int_to_bytes(
-        params=params, key=otvk, i=pre_hashed_message, n=n
-    )
-    c_hat: PolynomialNTTRepresentation = parse_challenge(
-        params=params, b=hashed_vk_and_pre_hashed_message
-    )
+    hashed_vk_and_pre_hashed_message: bytes = _hash_vk_and_int_to_bytes(params=params, key=otvk, i=pre_hashed_message,
+                                                                        n=n)
+    c_hat: PolynomialNTTRepresentation = _parse_challenge(params=params, b=hashed_vk_and_pre_hashed_message)
     return Signature(signature_hat=otsk.left_sk_hat * c_hat + otsk.right_sk_hat)
 
 
@@ -418,7 +405,7 @@ class AggregationCoefficient(object):
         return self.__str__()
 
 
-def hash_vks_and_ints_and_challs_to_bytes(
+def _hash_vks_and_ints_and_challs_to_bytes(
     params: Params,
     keys: List[OneTimeVerificationKey],
     prehashed_messages: List[int],
@@ -439,7 +426,7 @@ def hash_vks_and_ints_and_challs_to_bytes(
     return shake_256(salted_vk_and_pre_hashed_message_as_bytes).digest(n)
 
 
-def decode_bytes_to_agg_coefs(params: Params, b: bytes) -> List[AggregationCoefficient]:
+def _decode_bytes_to_agg_coefs(params: Params, b: bytes) -> List[AggregationCoefficient]:
     bound: int = max(0, min(params.modulus // 2, params.beta_ag))
     bytes_per_coefficient: int = ceil((log2(bound) + 1 + params.secpar) / 8)
     bytes_per_index: int = ceil((log2(params.degree) + params.secpar) / 8)
@@ -451,14 +438,12 @@ def decode_bytes_to_agg_coefs(params: Params, b: bytes) -> List[AggregationCoeff
     alpha_hats: List[AggregationCoefficient] = []
     for i in range(num_agg_coefs):
         next_byte_section: bytes = b[i * n : (i + 1) * n]
-        next_alpha_coefs: List[int] = decode_bytes_to_polynomial_coefficients(
-            b=next_byte_section,
-            log2_bias=params.secpar,
-            modulus=params.modulus,
-            degree=params.degree,
-            norm_bound=params.beta_ag,
-            weight_bound=params.omega_ag,
-        )
+        next_alpha_coefs: List[int] = _decode_bytes_to_polynomial_coefficients(b=next_byte_section,
+                                                                               log2_bias=params.secpar,
+                                                                               modulus=params.modulus,
+                                                                               degree=params.degree,
+                                                                               norm_bound=params.beta_ag,
+                                                                               weight_bound=params.omega_ag)
         next_alpha: PolynomialCoefficientRepresentation = (
             PolynomialCoefficientRepresentation(
                 modulus=params.modulus,
@@ -477,26 +462,20 @@ def decode_bytes_to_agg_coefs(params: Params, b: bytes) -> List[AggregationCoeff
     return alpha_hats
 
 
-def hash_ag(
+def _hash_ag(
     params: Params, keys: List[OneTimeVerificationKey], messages: List[str]
 ) -> List[AggregationCoefficient]:
     pre_hashed_messages: List[int] = [
-        hash_message_to_int(params=params, message=next_m)
+        _hash_message_to_int(params=params, message=next_m)
         for next_vk, next_m in zip(keys, messages)
     ]
     challs: List[SignatureChallenge] = [
-        hash_ch(params=params, key=next_vk, message=next_m)
+        _hash_ch(params=params, key=next_vk, message=next_m)
         for next_vk, next_m in zip(keys, messages)
     ]
-    b: bytes = hash_vks_and_ints_and_challs_to_bytes(
-        params=params,
-        keys=keys,
-        prehashed_messages=pre_hashed_messages,
-        challenges=challs,
-    )
-    alpha_hats: List[AggregationCoefficient] = decode_bytes_to_agg_coefs(
-        params=params, b=b
-    )
+    b: bytes = _hash_vks_and_ints_and_challs_to_bytes(params=params, keys=keys, prehashed_messages=pre_hashed_messages,
+                                                      challenges=challs)
+    alpha_hats: List[AggregationCoefficient] = _decode_bytes_to_agg_coefs(params=params, b=b)
     return alpha_hats
 
 
@@ -510,11 +489,8 @@ def aggregate(
         list(zip(keys, messages, signatures)), key=lambda x: str(x[0])
     )
     sorted_signatures: List[Signature] = [x[2] for x in sorted_input]
-    aggregation_coefficients: List[AggregationCoefficient] = hash_ag(
-        params=params,
-        keys=[x[0] for x in sorted_input],
-        messages=[x[1] for x in sorted_input],
-    )
+    aggregation_coefficients: List[AggregationCoefficient] = _hash_ag(params=params, keys=[x[0] for x in sorted_input],
+                                                                      messages=[x[1] for x in sorted_input])
     aggregate_signature_hat_values: GeneralMatrix = (
         sorted_signatures[0].signature_hat * aggregation_coefficients[0].alpha_hat
     )
@@ -541,14 +517,11 @@ def verify(
     sorted_input = sorted(zip(keys, messages), key=lambda x: str(x[0]))
     sorted_vks: List[OneTimeVerificationKey] = [x[0] for x in sorted_input]
     sorted_challs: List[SignatureChallenge] = [
-        hash_ch(params=params, key=next_vk, message=next_m)
+        _hash_ch(params=params, key=next_vk, message=next_m)
         for next_vk, next_m in sorted_input
     ]
-    aggregation_coefficients: List[AggregationCoefficient] = hash_ag(
-        params=params,
-        keys=[x[0] for x in sorted_input],
-        messages=[x[1] for x in sorted_input],
-    )
+    aggregation_coefficients: List[AggregationCoefficient] = _hash_ag(params=params, keys=[x[0] for x in sorted_input],
+                                                                      messages=[x[1] for x in sorted_input])
     tmp: GeneralMatrix = sorted_vks[0].left_vk_hat * sorted_challs[0].c_hat
     tmp += sorted_vks[0].right_vk_hat
     target: GeneralMatrix = (

@@ -27,13 +27,13 @@ from fusion.fusion import (
     OneTimeSigningKey,
     GeneralMatrix,
     SignatureChallenge,
-    hash_message_to_int,
-    hash_vk_and_int_to_bytes,
-    parse_challenge,
-    hash_ch,
+    _hash_message_to_int,
+    _hash_vk_and_int_to_bytes,
+    _parse_challenge,
+    _hash_ch,
     AggregationCoefficient,
-    hash_ag,
-    decode_bytes_to_polynomial_coefficients,
+    _hash_ag,
+    _decode_bytes_to_polynomial_coefficients,
 )
 
 TEST_SEED: int = 8675309
@@ -212,7 +212,7 @@ def test_hash_message_to_int(mocker):
         )
 
         # Call the hash_message_to_int function
-        result = hash_message_to_int(params, message)
+        result = _hash_message_to_int(params, message)
 
         # Assert that the result matches the expected value
         assert result == expected_result
@@ -245,9 +245,7 @@ def test_hash_vk_and_int_to_bytes(mocker):
 
         # Call the hash_vk_and_int_to_bytes function
         # we are mocking a result, so n can be anything.
-        result = hash_vk_and_int_to_bytes(
-            params=params, key=otvk, i=pre_hashed_message, n=1
-        )
+        result = _hash_vk_and_int_to_bytes(params=params, key=otvk, i=pre_hashed_message, n=1)
 
         # Assert that the result matches the expected value
         assert result == expected_result
@@ -280,14 +278,10 @@ def test_decode_bytes_to_polynomial_coefficients():
                 )
                 for _ in range(TEST_SAMPLE_SIZE):
                     x: bytes = os.urandom(n)
-                    y: List[int] = decode_bytes_to_polynomial_coefficients(
-                        b=x,
-                        log2_bias=next_secpar,
-                        modulus=params.modulus,
-                        degree=params.degree,
-                        weight_bound=num_coefs,
-                        norm_bound=bound,
-                    )
+                    y: List[int] = _decode_bytes_to_polynomial_coefficients(b=x, log2_bias=next_secpar,
+                                                                            modulus=params.modulus,
+                                                                            degree=params.degree, norm_bound=bound,
+                                                                            weight_bound=num_coefs)
                     y_as_poly: Poly = Poly(
                         modulus=params.modulus,
                         degree=params.degree,
@@ -336,14 +330,9 @@ def test_decode_bytes_to_polynomial_coefficient_redux():
         byteorder="big", length=bytes_per_shuffle_step
     ) * degree
 
-    f: List[int] = decode_bytes_to_polynomial_coefficients(
-        b=zero_bytestring,
-        log2_bias=log2_bias,
-        modulus=modulus,
-        degree=degree,
-        norm_bound=norm_bound,
-        weight_bound=weight_bound,
-    )
+    f: List[int] = _decode_bytes_to_polynomial_coefficients(b=zero_bytestring, log2_bias=log2_bias, modulus=modulus,
+                                                            degree=degree, norm_bound=norm_bound,
+                                                            weight_bound=weight_bound)
     assert f == expected_coefs
 
     # Next, we will show that the bytestring of all 1-bytes decodes to
@@ -374,14 +363,8 @@ def test_decode_bytes_to_polynomial_coefficient_redux():
         byteorder="big", length=bytes_per_shuffle_step
     ) * degree
 
-    f: Poly = decode_bytes_to_polynomial_coefficients(
-        b=one_bytestring,
-        log2_bias=log2_bias,
-        modulus=modulus,
-        degree=degree,
-        norm_bound=norm_bound,
-        weight_bound=weight_bound,
-    )
+    f: Poly = _decode_bytes_to_polynomial_coefficients(b=one_bytestring, log2_bias=log2_bias, modulus=modulus,
+                                                       degree=degree, norm_bound=norm_bound, weight_bound=weight_bound)
     assert f == expected_coefs
 
 
@@ -424,7 +407,7 @@ def test_parse_challenge(mocker):
             "fusion.fusion.decode_bytes_to_polynomial_coefficients"
         )
         mock_decode_bytes_to_polynomial_coefficients.return_value = one_poly_coefs
-        observed_output: PolyNTT = parse_challenge(params=params, b=b)
+        observed_output: PolyNTT = _parse_challenge(params=params, b=b)
         assert one_poly_hat == observed_output
 
         inv_observed_output: Poly = transform(observed_output)
@@ -438,7 +421,7 @@ def test_hash_ch_mocked(mocker):
         otk: OneTimeKeyTuple = keygen(params)
         otsk, otvk = otk.otsk, otk.otvk
         msg = "my_message"
-        i = hash_message_to_int(params=params, message=msg)
+        i = _hash_message_to_int(params=params, message=msg)
 
         num_coefs: int = max(0, min(params.degree, params.omega_ch))
         bound: int = max(0, min(params.modulus // 2, params.beta_ch))
@@ -450,7 +433,7 @@ def test_hash_ch_mocked(mocker):
             + bytes_per_coefficient * num_coefs
             + params.degree * bytes_per_index
         )
-        b = hash_vk_and_int_to_bytes(params=params, key=otvk, i=i, n=n)
+        b = _hash_vk_and_int_to_bytes(params=params, key=otvk, i=i, n=n)
         assert len(b) >= n
 
         one_poly_coefs: List[int] = [1] + [0 for _ in range(params.degree - 1)]
@@ -472,7 +455,7 @@ def test_hash_ch_mocked(mocker):
             "fusion.fusion.decode_bytes_to_polynomial_coefficients"
         )
         mock_decode_bytes_to_polynomial_coefficients.return_value = one_poly_coefs
-        ch = parse_challenge(params=params, b=b)
+        ch = _parse_challenge(params=params, b=b)
         assert ch == one_poly_hat
         expected_result = SignatureChallenge(c_hat=one_poly_hat)
 
@@ -480,7 +463,7 @@ def test_hash_ch_mocked(mocker):
             "fusion.fusion.decode_bytes_to_polynomial_coefficients"
         )
         mock_decode_bytes_to_polynomial_coefficients.return_value = one_poly_coefs
-        observed_result = hash_ch(params=params, key=otvk, message=msg)
+        observed_result = _hash_ch(params=params, key=otvk, message=msg)
         assert expected_result == observed_result
 
 
@@ -494,7 +477,7 @@ def test_hash_ch():
         message: str = "Hello, world!"
         ct = 0
         while ct < TEST_SAMPLE_SIZE:
-            ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=message)
+            ch: SignatureChallenge = _hash_ch(params=params, key=otvk, message=message)
             assert isinstance(ch, SignatureChallenge)
             assert isinstance(ch.c_hat, PolyNTT)
             assert ch.c_hat.degree == params.degree
@@ -531,7 +514,7 @@ def test_sign():
         otvk: OneTimeVerificationKey
         otsk, otvk = otk.otsk, otk.otvk
         message: str = "Hello, world!"
-        ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=message)
+        ch: SignatureChallenge = _hash_ch(params=params, key=otvk, message=message)
         sig: Signature = sign(params=params, otk=otk, msg=message)
         assert isinstance(sig, Signature)
         assert isinstance(sig.signature_hat, GeneralMatrix)
@@ -602,7 +585,7 @@ def test_one_sig():
 
         # Sign
         msg: str = "Hello World"
-        ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=msg)
+        ch: SignatureChallenge = _hash_ch(params=params, key=otvk, message=msg)
         sig: Signature = sign(params=params, otk=otk, msg=msg)
         assert isinstance(sig, Signature)
         assert isinstance(sig.signature_hat, GeneralMatrix)
@@ -612,9 +595,7 @@ def test_one_sig():
         )
 
         # Aggregate
-        alpha_hats: List[AggregationCoefficient] = hash_ag(
-            params=params, keys=[otvk], messages=[msg]
-        )
+        alpha_hats: List[AggregationCoefficient] = _hash_ag(params=params, keys=[otvk], messages=[msg])
         agg_sig: Signature = aggregate(
             params=params, keys=[otvk], messages=[msg], signatures=[sig]
         )
