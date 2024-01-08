@@ -5,112 +5,33 @@ from algebra.matrices import GeneralMatrix
 from algebra.polynomials import (PolynomialCoefficientRepresentation, PolynomialNTTRepresentation, transform)
 from algebra.sampling import sample_coefficient_matrix, sample_ntt_matrix
 
-PREFIX_PARAMETERS: dict = {}
-PRIME: int = 2147465729
-DEGREE_128: int = 2**6
-DEGREE_256: int = 2**8
-ROOT_ORDER_128: int = 2 * DEGREE_128
-ROOT_ORDER_256: int = 2 * DEGREE_256
-RANK_128: int = 195
-RANK_256: int = 83
-CAPACITY_128: int = 1796
-CAPACITY_256: int = 2818
-CH_WEIGHT_128: int = 27
-CH_WEIGHT_256: int = 60
-AG_WEIGHT_128: int = 35
-AG_WEIGHT_256: int = 60
-SK_BD_128: int = 52
-SK_BD_256: int = 52
-CH_BD_128: int = 3
-CH_BD_256: int = 1
-AG_BD_128: int = 2
-AG_BD_256: int = 1
-ROOT_128: int = 23584283
-ROOT_256: int = 3337519
-SIGN_PRE_HASH_DST_128: bytes = (1).to_bytes(byteorder="little", length=1) + (
-    0
-).to_bytes(byteorder="little", length=1)
-SIGN_PRE_HASH_DST_256: bytes = (3).to_bytes(byteorder="little", length=1) + (
-    0
-).to_bytes(byteorder="little", length=1)
-SIGN_HASH_DST_128: bytes = (1).to_bytes(byteorder="little", length=1) + (1).to_bytes(
-    byteorder="little", length=1
-)
-SIGN_HASH_DST_256: bytes = (3).to_bytes(byteorder="little", length=1) + (1).to_bytes(
-    byteorder="little", length=1
-)
-AGG_XOF_DST_128: bytes = (1).to_bytes(byteorder="little", length=1) + (2).to_bytes(
-    byteorder="little", length=1
-)
-AGG_XOF_DST_256: bytes = (3).to_bytes(byteorder="little", length=1) + (2).to_bytes(
-    byteorder="little", length=1
-)
+PRIME = 2147465729
+DEGREES = {128: 2**6, 256: 2**8}
+RANKS = {128: 195, 256: 83}
+CAPACITIES = {128: 1796, 256: 2818}
+ROOTS = {128: 23584283, 256: 3337519}
+SIGN_PRE_HASH_DSTS = {128: b'\x01\x00', 256: b'\x03\x00'}
+SIGN_HASH_DSTS = {128: b'\x01\x01', 256: b'\x03\x01'}
+AGG_XOF_DSTS = {128: b'\x01\x02', 256: b'\x03\x02'}
+CH_WTS = {128: 27, 256: 60}
+AG_WTS = {128: 35, 256: 60}
+CH_BDS = {128: 3, 256: 1}
+AG_BDS = {128: 2, 256: 1}
 
-VF_BD_INTERMEDIATE_128: int = SK_BD_128 * (
-    1 + min(DEGREE_128, CH_WEIGHT_128) * CH_BD_128
-)
-VF_BD_INTERMEDIATE_256: int = SK_BD_256 * (
-    1 + min(DEGREE_256, CH_WEIGHT_256) * CH_BD_256
-)
-VF_BD_128: int = (
-    CAPACITY_128 * min(DEGREE_128, AG_WEIGHT_128) * AG_BD_128 * VF_BD_INTERMEDIATE_128
-)
-VF_BD_256: int = (
-    CAPACITY_256 * min(DEGREE_256, AG_WEIGHT_256) * AG_BD_256 * VF_BD_INTERMEDIATE_256
-)
+PREFIX_PARAMETERS = {secpar: {
+    "capacity": CAPACITIES[secpar], "modulus": PRIME, "degree": DEGREES[secpar],
+    "root_order": 2 * DEGREES[secpar], "root": ROOTS[secpar], "inv_root": pow(ROOTS[secpar], PRIME - 2, PRIME),
+    "num_rows_pub_challenge": 1, "num_rows_sk": RANKS[secpar], "num_rows_vk": 1,
+    "num_cols_sk": 1, "num_cols_vk": 1, "sign_pre_hash_dst": SIGN_PRE_HASH_DSTS[secpar],
+    "sign_hash_dst": SIGN_HASH_DSTS[secpar], "agg_xof_dst": AGG_XOF_DSTS[secpar], "beta_sk": 52, "beta_ch": 1,
+    "beta_ag": 1, "omega_sk": DEGREES[secpar], "omega_ch": CH_WTS[secpar], "omega_ag": AG_WTS[secpar]
+} for secpar in [128, 256]}
+for secpar in [128, 256]:
+    PREFIX_PARAMETERS[secpar]["omega_vf_intermediate"] = min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["omega_sk"]*(1+PREFIX_PARAMETERS[secpar]["omega_ch"]))
+    PREFIX_PARAMETERS[secpar]["beta_vf_intermediate"] = PREFIX_PARAMETERS[secpar]["beta_sk"] * (1 + min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["omega_ch"])*PREFIX_PARAMETERS[secpar]["beta_ch"])
+    PREFIX_PARAMETERS[secpar]["omega_vf"] = min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["capacity"]*PREFIX_PARAMETERS[secpar]["omega_vf_intermediate"])
+    PREFIX_PARAMETERS[secpar]["beta_vf"] = (PREFIX_PARAMETERS[secpar]["capacity"] * min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["omega_ag"]) * PREFIX_PARAMETERS[secpar]["beta_ag"] * PREFIX_PARAMETERS[secpar]["beta_vf_intermediate"])
 
-# Check these against the parameterization analysis on iacr
-PREFIX_PARAMETERS[128] = {
-    "capacity": CAPACITY_128,
-    "modulus": PRIME,
-    "degree": DEGREE_128,
-    "root_order": ROOT_ORDER_128,
-    "root": ROOT_128,
-    "inv_root": pow(ROOT_128, PRIME - 2, PRIME),
-    "num_rows_pub_challenge": 1,
-    "num_rows_sk": RANK_128,
-    "num_rows_vk": 1,
-    "num_cols_pub_challenge": RANK_128,
-    "num_cols_sk": 1,
-    "num_cols_vk": 1,
-    "sign_pre_hash_dst": SIGN_PRE_HASH_DST_128,
-    "sign_hash_dst": SIGN_HASH_DST_128,
-    "agg_xof_dst": AGG_XOF_DST_128,
-    "beta_sk": SK_BD_128,
-    "beta_ch": 1,
-    "beta_ag": 1,
-    "omega_sk": DEGREE_128,
-    "omega_ch": CH_WEIGHT_128,
-    "omega_ag": AG_WEIGHT_128,
-    "beta_vf": VF_BD_128,
-    "omega_vf": DEGREE_128,
-}
-
-PREFIX_PARAMETERS[256] = {
-    "capacity": CAPACITY_256,
-    "modulus": PRIME,
-    "degree": DEGREE_256,
-    "root_order": ROOT_ORDER_256,
-    "root": ROOT_256,
-    "inv_root": pow(ROOT_256, PRIME - 2, PRIME),
-    "num_rows_pub_challenge": 1,
-    "num_rows_sk": RANK_256,
-    "num_rows_vk": 1,
-    "num_cols_pub_challenge": RANK_256,
-    "num_cols_sk": 1,
-    "num_cols_vk": 1,
-    "sign_pre_hash_dst": SIGN_PRE_HASH_DST_256,
-    "sign_hash_dst": SIGN_HASH_DST_256,
-    "agg_xof_dst": AGG_XOF_DST_256,
-    "beta_sk": SK_BD_256,
-    "beta_ch": 1,
-    "beta_ag": 1,
-    "omega_sk": DEGREE_256,
-    "omega_ch": CH_WEIGHT_256,
-    "omega_ag": AG_WEIGHT_256,
-    "beta_vf": VF_BD_256,
-    "omega_vf": DEGREE_256,
-}
 
 for next_secpar in PREFIX_PARAMETERS:
     tmp: int = ceil(
@@ -133,35 +54,6 @@ for next_secpar in PREFIX_PARAMETERS:
     PREFIX_PARAMETERS[next_secpar]["bytes_for_poly_shuffle"] = tmp
 
 
-def sample_coefficient_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
-                              num_cols: int, norm_bound: int, weight_bound: int) -> GeneralMatrix:
-    return GeneralMatrix(
-        matrix=[
-            [
-                sample_polynomial_coefficient_representation(modulus=modulus, degree=degree, root=root,
-                                                             inv_root=inv_root, root_order=root_order,
-                                                             norm_bound=norm_bound, weight_bound=weight_bound)
-                for j in range(num_cols)
-            ]
-            for i in range(num_rows)
-        ]
-    )
-
-
-def sample_ntt_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
-                      num_cols: int) -> GeneralMatrix:
-    return GeneralMatrix(
-        matrix=[
-            [
-                sample_polynomial_ntt_representation(modulus=modulus, degree=degree, root=root, inv_root=inv_root,
-                                                     root_order=root_order)
-                for j in range(num_cols)
-            ]
-            for i in range(num_rows)
-        ]
-    )
-
-
 class Params(object):
     secpar: int
     capacity: int
@@ -179,10 +71,12 @@ class Params(object):
     beta_sk: int
     beta_ch: int
     beta_ag: int
+    beta_vf_intermediate: int
     beta_vf: int
     omega_sk: int
     omega_ch: int
     omega_ag: int
+    omega_vf_intermediate: int
     omega_vf: int
     public_challenge: GeneralMatrix
     sign_pre_hash_dst: str
@@ -206,9 +100,9 @@ class Params(object):
             ]
             self.num_rows_sk = PREFIX_PARAMETERS[secpar]["num_rows_sk"]
             self.num_rows_vk = PREFIX_PARAMETERS[secpar]["num_rows_vk"]
-            self.num_cols_pub_challenge = PREFIX_PARAMETERS[secpar][
-                "num_cols_pub_challenge"
-            ]
+            # self.num_cols_pub_challenge = PREFIX_PARAMETERS[secpar][
+            #     "num_rows_sk"
+            # ]
             self.num_cols_sk = PREFIX_PARAMETERS[secpar]["num_cols_sk"]
             self.num_cols_vk = PREFIX_PARAMETERS[secpar]["num_cols_vk"]
             self.sign_pre_hash_dst = PREFIX_PARAMETERS[secpar]["sign_pre_hash_dst"]
@@ -226,18 +120,20 @@ class Params(object):
             self.beta_sk = PREFIX_PARAMETERS[secpar]["beta_sk"]
             self.beta_ch = PREFIX_PARAMETERS[secpar]["beta_ch"]
             self.beta_ag = PREFIX_PARAMETERS[secpar]["beta_ag"]
+            self.beta_vf_intermediate = PREFIX_PARAMETERS[secpar]["beta_vf_intermediate"]
             self.beta_vf = PREFIX_PARAMETERS[secpar]["beta_vf"]
             self.omega_sk = PREFIX_PARAMETERS[secpar]["omega_sk"]
             self.omega_ch = PREFIX_PARAMETERS[secpar]["omega_ch"]
             self.omega_ag = PREFIX_PARAMETERS[secpar]["omega_ag"]
+            self.omega_vf_intermediate = PREFIX_PARAMETERS[secpar]["omega_vf_intermediate"]
             self.omega_vf = PREFIX_PARAMETERS[secpar]["omega_vf"]
             self.public_challenge = sample_ntt_matrix(modulus=self.modulus, degree=self.degree,
                                                       root_order=self.root_order, root=self.root,
                                                       inv_root=self.inv_root, num_rows=self.num_rows_pub_challenge,
-                                                      num_cols=self.num_cols_pub_challenge)
+                                                      num_cols=self.num_rows_sk)
 
     def __str__(self) -> str:
-        return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_rows_vk={self.num_rows_vk}, num_cols_pub_challenge={self.num_cols_pub_challenge}, num_cols_sk={self.num_cols_sk}, num_cols_vk={self.num_cols_vk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_poly_shuffle={self.bytes_for_poly_shuffle})"
+        return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_rows_vk={self.num_rows_vk}, num_cols_sk={self.num_cols_sk}, num_cols_vk={self.num_cols_vk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_poly_shuffle={self.bytes_for_poly_shuffle})"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -286,7 +182,19 @@ class OneTimeVerificationKey(object):
         return self.__str__()
 
 
-OneTimeKeyTuple = Tuple[OneTimeSigningKey, OneTimeVerificationKey]
+class OneTimeKeyTuple(object):
+    otsk: OneTimeSigningKey
+    otvk: OneTimeVerificationKey
+
+    def __init__(self, otsk: OneTimeSigningKey, otvk: OneTimeVerificationKey):
+        self.otsk = otsk
+        self.otvk = otvk
+
+    def __str__(self):
+        return f"OneTimeKeyTuple(otsk={self.otsk},otvk={self.otvk})"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def keygen(params: Params) -> OneTimeKeyTuple:
@@ -306,10 +214,11 @@ def keygen(params: Params) -> OneTimeKeyTuple:
     right_sk_hat: GeneralMatrix = GeneralMatrix(
         matrix=[[transform(y) for y in z] for z in right_key_coefs.matrix]
     )
+    otsk: OneTimeSigningKey = OneTimeSigningKey(left_sk_hat=left_sk_hat, right_sk_hat=right_sk_hat)
     left_vk_hat: GeneralMatrix = params.public_challenge * left_sk_hat
     right_vk_hat: GeneralMatrix = params.public_challenge * right_sk_hat
-    return (OneTimeSigningKey(left_sk_hat=left_sk_hat, right_sk_hat=right_sk_hat),
-            OneTimeVerificationKey(left_vk_hat=left_vk_hat, right_vk_hat=right_vk_hat))
+    otvk: OneTimeVerificationKey = OneTimeVerificationKey(left_vk_hat=left_vk_hat, right_vk_hat=right_vk_hat)
+    return OneTimeKeyTuple(otsk=otsk, otvk=otvk)
 
 
 class SignatureChallenge(object):
@@ -470,12 +379,12 @@ def hash_ch(
     return SignatureChallenge(c_hat=parsed_chall)
 
 
-def sign(params: Params, key: OneTimeKeyTuple, message: str) -> Signature:
-    sk: OneTimeSigningKey  # type
-    vk: OneTimeVerificationKey  # type
-    sk, vk = key  # unpack keys
+def sign(params: Params, otk: OneTimeKeyTuple, msg: str) -> Signature:
+    otsk: OneTimeSigningKey  # type
+    otvk: OneTimeVerificationKey  # type
+    otsk, otvk = otk.otsk, otk.otvk  # unpack keys
     pre_hashed_message: int = hash_message_to_int(
-        params=params, message=message
+        params=params, message=msg
     )  # pre-hash the message before hashing with vk
     num_coefs: int = max(0, min(params.degree, params.omega_ch))
     bound: int = max(0, min(params.modulus // 2, params.beta_ch))
@@ -488,12 +397,12 @@ def sign(params: Params, key: OneTimeKeyTuple, message: str) -> Signature:
         + params.degree * bytes_per_index
     )
     hashed_vk_and_pre_hashed_message: bytes = hash_vk_and_int_to_bytes(
-        params=params, key=vk, i=pre_hashed_message, n=n
+        params=params, key=otvk, i=pre_hashed_message, n=n
     )
     c_hat: PolynomialNTTRepresentation = parse_challenge(
         params=params, b=hashed_vk_and_pre_hashed_message
     )
-    return Signature(signature_hat=sk.left_sk_hat * c_hat + sk.right_sk_hat)
+    return Signature(signature_hat=otsk.left_sk_hat * c_hat + otsk.right_sk_hat)
 
 
 class AggregationCoefficient(object):

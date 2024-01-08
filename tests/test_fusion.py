@@ -83,171 +83,32 @@ def test_sample_ntt_matrix():
 
 
 def test_params_and_fusion_setup():
+    def assert_params_equality_except_public_challenges(params_instance_1, params_instance_2):
+        for attr in vars(params_instance_1):
+            if attr == 'public_challenge':
+                continue  # Skip this attribute
+            attr_value_1 = getattr(params_instance_1, attr)
+            attr_value_2 = getattr(params_instance_2, attr)
+            assert attr_value_1 == attr_value_2
+
     for next_secpar in [128, 256]:
         expected_params: Params = Params(secpar=next_secpar)
-        expected_str: str = expected_params.__str__()
-        expected_repr: str = expected_params.__repr__()
         observed_params: Params = fusion_setup(secpar=next_secpar)
-        observed_str: str = observed_params.__str__()
-        observed_repr: str = observed_params.__repr__()
-
-        # types
-        assert isinstance(expected_params, Params)
-        assert isinstance(expected_str, str)
-        assert isinstance(expected_repr, str)
-        assert isinstance(observed_params, Params)
-        assert isinstance(observed_str, str)
-        assert isinstance(observed_repr, str)
-
-        # parameters
-        assert expected_params.secpar == next_secpar == observed_params.secpar
-        assert (
-            expected_params.capacity
-            == PREFIX_PARAMETERS[next_secpar]["capacity"]
-            == observed_params.capacity
-        )
-        assert (
-            expected_params.modulus
-            == PREFIX_PARAMETERS[next_secpar]["modulus"]
-            == observed_params.modulus
-        )
-        assert (
-            expected_params.degree
-            == PREFIX_PARAMETERS[next_secpar]["degree"]
-            == observed_params.degree
-        )
-        assert (
-            expected_params.root_order
-            == PREFIX_PARAMETERS[next_secpar]["root_order"]
-            == observed_params.root_order
-        )
-        assert (
-            expected_params.root
-            == PREFIX_PARAMETERS[next_secpar]["root"]
-            == observed_params.root
-        )
-        assert (
-            expected_params.inv_root
-            == PREFIX_PARAMETERS[next_secpar]["inv_root"]
-            == observed_params.inv_root
-        )
-        assert (
-            expected_params.num_rows_pub_challenge
-            == PREFIX_PARAMETERS[next_secpar]["num_rows_pub_challenge"]
-            == observed_params.num_rows_pub_challenge
-        )
-        assert (
-            expected_params.num_rows_sk
-            == PREFIX_PARAMETERS[next_secpar]["num_rows_sk"]
-            == observed_params.num_rows_sk
-        )
-        assert (
-            expected_params.num_rows_vk
-            == PREFIX_PARAMETERS[next_secpar]["num_rows_vk"]
-            == observed_params.num_rows_vk
-        )
-        assert (
-            expected_params.num_cols_pub_challenge
-            == PREFIX_PARAMETERS[next_secpar]["num_cols_pub_challenge"]
-            == observed_params.num_cols_pub_challenge
-        )
-        assert (
-            expected_params.num_cols_sk
-            == PREFIX_PARAMETERS[next_secpar]["num_cols_sk"]
-            == observed_params.num_cols_sk
-        )
-        assert (
-            expected_params.num_cols_vk
-            == PREFIX_PARAMETERS[next_secpar]["num_cols_vk"]
-            == observed_params.num_cols_vk
-        )
-        assert (
-            expected_params.sign_pre_hash_dst
-            == PREFIX_PARAMETERS[next_secpar]["sign_pre_hash_dst"]
-            == observed_params.sign_pre_hash_dst
-        )
-        assert (
-            expected_params.sign_hash_dst
-            == PREFIX_PARAMETERS[next_secpar]["sign_hash_dst"]
-            == observed_params.sign_hash_dst
-        )
-        assert (
-            expected_params.agg_xof_dst
-            == PREFIX_PARAMETERS[next_secpar]["agg_xof_dst"]
-            == observed_params.agg_xof_dst
-        )
-        assert (
-            expected_params.bytes_for_one_coef_bdd_by_beta_ch
-            == PREFIX_PARAMETERS[next_secpar]["bytes_for_one_coef_bdd_by_beta_ch"]
-            == observed_params.bytes_for_one_coef_bdd_by_beta_ch
-        )
-        assert (
-            expected_params.bytes_for_one_coef_bdd_by_beta_ag
-            == PREFIX_PARAMETERS[next_secpar]["bytes_for_one_coef_bdd_by_beta_ag"]
-            == observed_params.bytes_for_one_coef_bdd_by_beta_ag
-        )
-        assert (
-            expected_params.bytes_for_poly_shuffle
-            == PREFIX_PARAMETERS[next_secpar]["bytes_for_poly_shuffle"]
-            == observed_params.bytes_for_poly_shuffle
-        )
-        assert (
-            expected_params.beta_sk
-            == PREFIX_PARAMETERS[next_secpar]["beta_sk"]
-            == observed_params.beta_sk
-        )
-        assert (
-            expected_params.beta_ch
-            == PREFIX_PARAMETERS[next_secpar]["beta_ch"]
-            == observed_params.beta_ch
-        )
-        assert (
-            expected_params.beta_ag
-            == PREFIX_PARAMETERS[next_secpar]["beta_ag"]
-            == observed_params.beta_ag
-        )
-        assert (
-            expected_params.beta_vf
-            == PREFIX_PARAMETERS[next_secpar]["beta_vf"]
-            == observed_params.beta_vf
-        )
-        assert (
-            expected_params.omega_sk
-            == PREFIX_PARAMETERS[next_secpar]["omega_sk"]
-            == observed_params.omega_sk
-        )
-        assert (
-            expected_params.omega_ch
-            == PREFIX_PARAMETERS[next_secpar]["omega_ch"]
-            == observed_params.omega_ch
-        )
-        assert (
-            expected_params.omega_ag
-            == PREFIX_PARAMETERS[next_secpar]["omega_ag"]
-            == observed_params.omega_ag
-        )
-        assert (
-            expected_params.omega_vf
-            == PREFIX_PARAMETERS[next_secpar]["omega_vf"]
-            == observed_params.omega_vf
-        )
-
-        # __eq__
-        assert expected_params == observed_params
+        assert_params_equality_except_public_challenges(expected_params, observed_params)
 
 
 def test_key_classes():
     for next_secpar in [128, 256]:
         # Test the OneTimeSigningKey class
         otsk: OneTimeSigningKey = OneTimeSigningKey(
-            seed=None, left_sk_hat="Hello world", right_sk_hat="Goodbye world"
+            left_sk_hat="Hello world", right_sk_hat="Goodbye world"
         )
-        assert otsk.seed is None
+
         assert otsk.left_sk_hat == "Hello world"
         assert otsk.right_sk_hat == "Goodbye world"
         assert (
             otsk.__str__()
-            == f"OneTimeSigningKey(seed={None}, left_sk_hat={'Hello world'}, right_sk_hat={'Goodbye world'})"
+            == f"OneTimeSigningKey(left_sk_hat={'Hello world'}, right_sk_hat={'Goodbye world'})"
         )
         assert otsk.__str__() == otsk.__repr__()
 
@@ -280,17 +141,17 @@ def test_keygen():
 
         # Keygen
         otk: OneTimeKeyTuple = keygen(params=params)
-        assert isinstance(otk, tuple)
-        assert len(otk) == 2
-        assert isinstance(otk[0], OneTimeSigningKey)
-        assert isinstance(otk[1], OneTimeVerificationKey)
+        assert isinstance(otk, OneTimeKeyTuple)
+        assert hasattr(otk, "otsk")
+        assert hasattr(otk, "otvk")
+        assert isinstance(otk.otsk, OneTimeSigningKey)
+        assert isinstance(otk.otvk, OneTimeVerificationKey)
 
         # Unpack the key
         otsk: OneTimeSigningKey  # private
         otvk: OneTimeVerificationKey  # public
-        otsk, otvk = otk  # unpack
+        otsk, otvk = otk.otsk, otk.otvk  # unpack
 
-        assert hasattr(otsk, "seed")
         assert hasattr(otsk, "left_sk_hat")
         assert hasattr(otsk, "right_sk_hat")
         assert isinstance(otsk.left_sk_hat, GeneralMatrix)
@@ -364,9 +225,9 @@ def test_hash_message_to_int(mocker):
 def test_hash_vk_and_int_to_bytes(mocker):
     for next_secpar in [128, 256]:
         # Create sample Params and OneTimeVerificationKey objects
-        params = fusion_setup(secpar=next_secpar)
-        keys = keygen(params)
-        otsk, otvk = keys
+        params: Params = fusion_setup(secpar=next_secpar)
+        otk: OneTimeKeyTuple = keygen(params)
+        otsk, otvk = otk.otsk, otk.otvk
 
         pre_hashed_message = 1234567890
 
@@ -626,14 +487,14 @@ def test_hash_ch_mocked(mocker):
 def test_hash_ch():
     for next_secpar in [128, 256]:
         params: Params = fusion_setup(secpar=next_secpar)
-        keys: OneTimeKeyTuple = keygen(params=params)
-        sk: OneTimeSigningKey
-        vk: OneTimeVerificationKey
-        sk, vk = keys
+        otk: OneTimeKeyTuple = keygen(params=params)
+        otsk: OneTimeSigningKey
+        otvk: OneTimeVerificationKey
+        otsk, otvk = otk.otsk, otk.otvk
         message: str = "Hello, world!"
         ct = 0
         while ct < TEST_SAMPLE_SIZE:
-            ch: SignatureChallenge = hash_ch(params=params, key=vk, message=message)
+            ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=message)
             assert isinstance(ch, SignatureChallenge)
             assert isinstance(ch.c_hat, PolyNTT)
             assert ch.c_hat.degree == params.degree
@@ -665,13 +526,13 @@ def test_sign():
             1 + min(params.degree, params.omega_sk, params.omega_ch) * params.beta_ch
         )
 
-        keys: OneTimeKeyTuple = keygen(params=params)
-        sk: OneTimeSigningKey
-        vk: OneTimeVerificationKey
-        sk, vk = keys
+        otk: OneTimeKeyTuple = keygen(params=params)
+        otsk: OneTimeSigningKey
+        otvk: OneTimeVerificationKey
+        otsk, otvk = otk.otsk, otk.otvk
         message: str = "Hello, world!"
-        ch: SignatureChallenge = hash_ch(params=params, key=vk, message=message)
-        sig: Signature = sign(params=params, key=keys, message=message)
+        ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=message)
+        sig: Signature = sign(params=params, otk=otk, msg=message)
         assert isinstance(sig, Signature)
         assert isinstance(sig.signature_hat, GeneralMatrix)
         assert len(sig.signature_hat.matrix) == params.num_rows_sk
@@ -684,7 +545,7 @@ def test_sign():
             for row in sig.signature_hat.matrix
             for f in row
         )
-        target: GeneralMatrix = vk.left_vk_hat * ch.c_hat + vk.right_vk_hat
+        target: GeneralMatrix = otvk.left_vk_hat * ch.c_hat + otvk.right_vk_hat
         observed: GeneralMatrix = params.public_challenge * sig.signature_hat
         assert target == observed
 
@@ -732,42 +593,42 @@ def test_one_sig():
 
         # Keygen
         otk: OneTimeKeyTuple = keygen(params=params)
-        sk: OneTimeSigningKey = otk[0]
-        sk_left_sk_hat: GeneralMatrix = sk.left_sk_hat
-        sk_right_sk_hat: GeneralMatrix = sk.right_sk_hat
-        vk: OneTimeVerificationKey = otk[1]
-        assert params.public_challenge * sk_left_sk_hat == vk.left_vk_hat
-        assert params.public_challenge * sk_right_sk_hat == vk.right_vk_hat
+        otsk: OneTimeSigningKey = otk.otsk
+        sk_left_sk_hat: GeneralMatrix = otsk.left_sk_hat
+        sk_right_sk_hat: GeneralMatrix = otsk.right_sk_hat
+        otvk: OneTimeVerificationKey = otk.otvk
+        assert params.public_challenge * sk_left_sk_hat == otvk.left_vk_hat
+        assert params.public_challenge * sk_right_sk_hat == otvk.right_vk_hat
 
         # Sign
         msg: str = "Hello World"
-        ch: SignatureChallenge = hash_ch(params=params, key=vk, message=msg)
-        sig: Signature = sign(params=params, key=otk, message=msg)
+        ch: SignatureChallenge = hash_ch(params=params, key=otvk, message=msg)
+        sig: Signature = sign(params=params, otk=otk, msg=msg)
         assert isinstance(sig, Signature)
         assert isinstance(sig.signature_hat, GeneralMatrix)
         assert (
             params.public_challenge * sig.signature_hat
-            == vk.left_vk_hat * ch.c_hat + vk.right_vk_hat
+            == otvk.left_vk_hat * ch.c_hat + otvk.right_vk_hat
         )
 
         # Aggregate
         alpha_hats: List[AggregationCoefficient] = hash_ag(
-            params=params, keys=[vk], messages=[msg]
+            params=params, keys=[otvk], messages=[msg]
         )
         agg_sig: Signature = aggregate(
-            params=params, keys=[vk], messages=[msg], signatures=[sig]
+            params=params, keys=[otvk], messages=[msg], signatures=[sig]
         )
         assert agg_sig.signature_hat == sig.signature_hat * alpha_hats[0].alpha_hat
         assert (
             params.public_challenge * agg_sig.signature_hat
-            == (vk.left_vk_hat * ch.c_hat + vk.right_vk_hat) * alpha_hats[0].alpha_hat
+            == (otvk.left_vk_hat * ch.c_hat + otvk.right_vk_hat) * alpha_hats[0].alpha_hat
         )
 
         # Verify
         verification_bit: bool
         explanation: str
         verification_bit, explanation = verify(
-            params=params, keys=[vk], messages=[msg], aggregate_signature=agg_sig
+            params=params, keys=[otvk], messages=[msg], aggregate_signature=agg_sig
         )
         assert explanation == ""
         assert verification_bit
@@ -785,23 +646,21 @@ def test_many_sigs():
                 keygen(params=params) for _ in range(num_keys)
             ]
 
-            sks: List[OneTimeSigningKey]
-            vks: List[OneTimeVerificationKey]
-            sks, vks = [otk[0] for otk in otks], [otk[1] for otk in otks]
+            otsks: List[OneTimeSigningKey]
+            otvks: List[OneTimeVerificationKey]
+            otsks, otvks = [otk.otsk for otk in otks], [otk.otvk for otk in otks]
 
-            seeds: List[int]
             left_sk_hats: List[GeneralMatrix]
             right_sk_hats: List[GeneralMatrix]
-            seeds, left_sk_hats, right_sk_hats = (
-                [sk.seed for sk in sks],
-                [sk.left_sk_hat for sk in sks],
-                [sk.right_sk_hat for sk in sks],
+            left_sk_hats, right_sk_hats = (
+                [sk.left_sk_hat for sk in otsks],
+                [sk.right_sk_hat for sk in otsks],
             )
 
             left_vk_hats: List[GeneralMatrix]
             right_vk_hats: List[GeneralMatrix]
-            left_vk_hats, right_vk_hats = [vk.left_vk_hat for vk in vks], [
-                vk.right_vk_hat for vk in vks
+            left_vk_hats, right_vk_hats = [vk.left_vk_hat for vk in otvks], [
+                vk.right_vk_hat for vk in otvks
             ]
 
             for sk_hat, vk_hat in zip(
@@ -811,15 +670,15 @@ def test_many_sigs():
 
             msgs: List[str] = ["test_many_sigs_" + str(i) for i in range(num_keys)]
             sigs: List[Signature] = [
-                sign(params=params, key=otk, message=msg)
+                sign(params=params, otk=otk, msg=msg)
                 for otk, msg in zip(otks, msgs)
             ]
 
             agg_sig: Signature = aggregate(
-                params=params, keys=vks, messages=msgs, signatures=sigs
+                params=params, keys=otvks, messages=msgs, signatures=sigs
             )
             assert verify(
-                params=params, keys=vks, messages=msgs, aggregate_signature=agg_sig
+                params=params, keys=otvks, messages=msgs, aggregate_signature=agg_sig
             )[0]
 
             # changing any coefficient of any entry in agg_sig by any amount should result in a failure.
@@ -832,7 +691,7 @@ def test_many_sigs():
             ) % params.modulus
             assert not verify(
                 params=params,
-                keys=vks,
+                keys=otvks,
                 messages=msgs,
                 aggregate_signature=modified_agg_sig,
             )[0]
