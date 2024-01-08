@@ -1,15 +1,9 @@
 from hashlib import shake_256, sha3_256
 from math import ceil, log2
 from typing import List, Optional, Tuple
-from math.matrices import GeneralMatrix
-from math.polynomials import (
-    PolynomialCoefficientRepresentation,
-    PolynomialNTTRepresentation,
-    transform,
-)
-from math.sampling import sample_polynomial_coefficient_representation, sample_polynomial_ntt_representation
-
-# This implementation is not secure for prod, toy prototype only.
+from algebra.matrices import GeneralMatrix
+from algebra.polynomials import (PolynomialCoefficientRepresentation, PolynomialNTTRepresentation, transform)
+from algebra.sampling import sample_coefficient_matrix, sample_ntt_matrix
 
 PREFIX_PARAMETERS: dict = {}
 PRIME: int = 2147465729

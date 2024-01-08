@@ -293,7 +293,6 @@ def test_keygen():
         assert hasattr(otsk, "seed")
         assert hasattr(otsk, "left_sk_hat")
         assert hasattr(otsk, "right_sk_hat")
-        assert isinstance(otsk.seed, int)
         assert isinstance(otsk.left_sk_hat, GeneralMatrix)
         assert isinstance(otsk.right_sk_hat, GeneralMatrix)
 
@@ -448,7 +447,6 @@ def test_decode_bytes_to_polynomial_coefficient_redux():
     inv_root: int = pow(root, modulus - 2, modulus)
     norm_bound: int = 1000
     weight_bound: int = 100
-    seed: int = TEST_SEED
 
     # First, we will show that the bytestring of all zero-bytes decodes to
     # [-1, -1, -1, ..., -1, -1, 0, 0, ..., 0,  0] before shuffling
@@ -576,8 +574,8 @@ def test_hash_ch_mocked(mocker):
     for next_secpar in [128, 256]:
         # Correctness depends on correctness of hash_message_to_int and hash_vk_and_int_to_bytes and parse_challenge
         params: Params = fusion_setup(secpar=next_secpar)
-        keys = keygen(params)
-        otsk, otvk = keys
+        otk: OneTimeKeyTuple = keygen(params)
+        otsk, otvk = otk.otsk, otk.otvk
         msg = "my_message"
         i = hash_message_to_int(params=params, message=msg)
 
@@ -735,7 +733,6 @@ def test_one_sig():
         # Keygen
         otk: OneTimeKeyTuple = keygen(params=params)
         sk: OneTimeSigningKey = otk[0]
-        seed: int = sk.seed
         sk_left_sk_hat: GeneralMatrix = sk.left_sk_hat
         sk_right_sk_hat: GeneralMatrix = sk.right_sk_hat
         vk: OneTimeVerificationKey = otk[1]
