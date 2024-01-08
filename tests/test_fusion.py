@@ -363,8 +363,7 @@ def test_decode_bytes_to_polynomial_coefficient_redux():
         byteorder="big", length=bytes_per_shuffle_step
     ) * degree
 
-    f: Poly = _decode_bytes_to_polynomial_coefficients(b=one_bytestring, log2_bias=log2_bias, modulus=modulus,
-                                                       degree=degree, norm_bound=norm_bound, weight_bound=weight_bound)
+    f: Poly = _decode_bytes_to_polynomial_coefficients(b=one_bytestring, log2_bias=log2_bias, modulus=modulus, degree=degree, norm_bound=norm_bound, weight_bound=weight_bound)
     assert f == expected_coefs
 
 
@@ -404,7 +403,7 @@ def test_parse_challenge(mocker):
 
         # Mock the decode_bytes_to_polynomial_coefficient_representation function
         mock_decode_bytes_to_polynomial_coefficients = mocker.patch(
-            "fusion.fusion.decode_bytes_to_polynomial_coefficients"
+            "fusion.fusion._decode_bytes_to_polynomial_coefficients"
         )
         mock_decode_bytes_to_polynomial_coefficients.return_value = one_poly_coefs
         observed_output: PolyNTT = _parse_challenge(params=params, b=b)
@@ -452,7 +451,7 @@ def test_hash_ch_mocked(mocker):
 
         # Mock the decode_bytes_to_polynomial_coefficient_representation function
         mock_decode_bytes_to_polynomial_coefficients = mocker.patch(
-            "fusion.fusion.decode_bytes_to_polynomial_coefficients"
+            "fusion.fusion._decode_bytes_to_polynomial_coefficients"
         )
         mock_decode_bytes_to_polynomial_coefficients.return_value = one_poly_coefs
         ch = _parse_challenge(params=params, b=b)
@@ -460,7 +459,7 @@ def test_hash_ch_mocked(mocker):
         expected_result = SignatureChallenge(c_hat=one_poly_hat)
 
         mock_decode_bytes_to_polynomial_coefficients = mocker.patch(
-            "fusion.fusion.decode_bytes_to_polynomial_coefficients"
+            "fusion.fusion._decode_bytes_to_polynomial_coefficients"
         )
         mock_decode_bytes_to_polynomial_coefficients.return_value = one_poly_coefs
         observed_result = _hash_ch(params=params, key=otvk, message=msg)
