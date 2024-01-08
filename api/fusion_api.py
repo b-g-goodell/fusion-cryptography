@@ -8,7 +8,7 @@ def setup(secpar: int) -> Params:
     params = fusion_setup(secpar)
     return params
 
-def generate_keys(params: Params, num_keys: int = 1) -> OneTimeKeyTuple:
+def generate_keys(params: Params, num_keys: int = 1) -> OneTimeKeyTuple | List[OneTimeKeyTuple]:
     """
     Generate a one-time signing key (SK) and one-time verification key (VK) pair.
     """
