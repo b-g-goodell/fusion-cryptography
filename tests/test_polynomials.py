@@ -2,16 +2,13 @@ import pytest
 from copy import deepcopy
 from random import randrange
 from typing import List
-
-import pytest
-
-from math.ntt import find_primitive_root, ntt_poly_mult
-from math.polynomials import (
+from algebra.ntt import find_primitive_root, ntt_poly_mult
+from algebra.polynomials import (
     PolynomialCoefficientRepresentation as Poly,
     PolynomialNTTRepresentation as PolyNTT,
     transform,
-    sample_polynomial_coefficient_representation,
 )
+from algebra.sampling import sample_polynomial_coefficient_representation, sample_polynomial_ntt_representation
 from test_ntt import TEST_2D_Q_PAIRS, TEST_SAMPLE_SIZE
 
 

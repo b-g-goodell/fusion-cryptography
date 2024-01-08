@@ -3,7 +3,7 @@ from copy import deepcopy
 from random import randrange
 from typing import List, Tuple
 
-from math.ntt import (
+from algebra.ntt import (
     is_odd_prime,
     find_primitive_root,
     has_primitive_root_of_unity,

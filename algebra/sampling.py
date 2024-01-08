@@ -1,6 +1,8 @@
 from secrets import randbits, randbelow
-from typing import Dict, List, Union, Optional
-from math.polynomials import PolynomialCoefficientRepresentation, PolynomialNTTRepresentation
+from typing import List
+from algebra.polynomials import PolynomialCoefficientRepresentation, PolynomialNTTRepresentation
+from algebra.matrices import GeneralMatrix
+
 def sample_polynomial_coefficient_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int, norm_bound: int, weight_bound: int) -> PolynomialCoefficientRepresentation:
     # Exactly weight non-zero coefficients
     num_coefs_to_gen: int = max(0, min(degree, weight_bound))
@@ -34,3 +36,33 @@ def sample_polynomial_ntt_representation(modulus: int, degree: int, root: int, i
         root_order=root_order,
         values=values,
     )
+
+
+def sample_coefficient_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
+                              num_cols: int, norm_bound: int, weight_bound: int) -> GeneralMatrix:
+    return GeneralMatrix(
+        matrix=[
+            [
+                sample_polynomial_coefficient_representation(modulus=modulus, degree=degree, root=root,
+                                                             inv_root=inv_root, root_order=root_order,
+                                                             norm_bound=norm_bound, weight_bound=weight_bound)
+                for j in range(num_cols)
+            ]
+            for i in range(num_rows)
+        ]
+    )
+
+
+def sample_ntt_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
+                      num_cols: int) -> GeneralMatrix:
+    return GeneralMatrix(
+        matrix=[
+            [
+                sample_polynomial_ntt_representation(modulus=modulus, degree=degree, root=root, inv_root=inv_root,
+                                                     root_order=root_order)
+                for j in range(num_cols)
+            ]
+            for i in range(num_rows)
+        ]
+    )
+

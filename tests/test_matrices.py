@@ -1,9 +1,9 @@
 import pytest
 from random import randrange
 
-from math.matrices import *
-from math.ntt import find_primitive_root
-from math.polynomials import (
+from algebra.matrices import *
+from algebra.ntt import find_primitive_root
+from algebra.polynomials import (
     PolynomialCoefficientRepresentation as Poly,
     PolynomialNTTRepresentation as PolyNTT,
     transform,
