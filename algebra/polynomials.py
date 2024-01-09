@@ -259,7 +259,7 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
         return self.__str__()
 
     def __eq__(self, other):
-        if other == 0:
+        if isinstance(other, int) and other == 0:
             return all(x % self.modulus == 0 for x in self.values)
         elif not isinstance(other, PolynomialNTTRepresentation):
             return False
