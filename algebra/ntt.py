@@ -27,7 +27,7 @@ def is_odd_prime(val: int) -> bool:
         if (
             isinstance(val, int)
             and val >= 3
-            and all(val % i != 0 for i in range(3, int(val**0.5) + 1, 2))
+            and all(val % i != 0 for i in range(2, int(val**0.5) + 1))
         ):
             CACHED_IS_ODD_PRIME[val] = True
     return CACHED_IS_ODD_PRIME[val]
