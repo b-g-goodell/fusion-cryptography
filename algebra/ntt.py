@@ -1,5 +1,34 @@
 """
 The ntt module handles the Number Theoretic Transform (NTT) and its inverse in constant time.
+
+Example usage:
+    from ntt import find_primitive_root, bit_reverse_copy
+
+    # Example parameters
+    modulus = 17
+    degree = 8
+    root_order = 2*degree
+
+    # Precompute root and inv_root powers
+    root = find_primitive_root(modulus=modulus, root_order=root_order)
+    root_powers = [pow(base=root, exp=i, mod=modulus) for i in range(root_order)]
+    brv_root_powers = bit_reverse_copy(val=root_powers)
+    inv_root = pow(base=root, exp=modulus-2, mod=modulus)
+    inv_root_powers = [pow(base=inv_root, exp=i, mod=modulus) for i in range(root_order)]
+    brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
+
+    # Let's compute some NTTs!
+    # Start with the multiplicative identity, the 1-polynomial
+    one_poly = [1, 0, 0, 0, 0, 0, 0, 0]
+    expected_one_poly_hat = [1, 1, 1, 1, 1, 1, 1, 1]
+    observed_one_poly_hat = cooley_tukey_ntt(val=one_poly, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers)
+    assert expected_one_poly_hat == observed_one_poly_hat
+
+    # Next let's do the first monomial, the X-polynomial.
+    x_poly = [0, 1, 0, 0, 0, 0, 0, 0]
+    expected_x_poly_hat = cooley_tukey_ntt(val=x_poly)
+    observed_x_poly_hat = cooley_tukey_ntt(val=x_poly
+    assert expected_x_poly_hat == observed_x_poly_hat
 """
 from copy import deepcopy
 from math import ceil, log2
