@@ -417,10 +417,11 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
         halfmod=halfmod,
         logmod=logmod,
     )
-    fg: List[int] = [
+    fg_hat: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
         for x, y in zip(deepcopy_f, deepcopy_g)
     ]
+    fg = deepcopy(fg_hat)
     gentleman_sande_intt(
         val=fg,
         modulus=modulus,
