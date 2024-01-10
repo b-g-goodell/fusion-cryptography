@@ -180,26 +180,29 @@ def test_gentleman_sande(modulus, root_order, root, root_inv, root_inv_powers, b
 def some_random_polynomials_and_their_product(request):
     modulus, root_order, root, root_inv = request.param
     degree = root_order//2
-    fs: List[List[int]] = []
-    gs: List[List[int]] = []
-    hs: List[List[int]] = []
-    while len(fs) < SAMPLE_SIZE:
-        fs += [[randbelow(modulus) for _ in range(degree)]]
-        gs += [[randbelow(modulus) for _ in range(degree)]]
-        hs += [[0 for _ in range(root_order)]]  # twice as long
-        assert len(hs[-1]) == root_order
-        # by foiling
-        for i, a in enumerate(fs[-1]):
-            for j, b in enumerate(gs[-1]):
-                hs[-1][i+j] += a*b % modulus
-        hs[-1] = [(x - y) % modulus for x, y in zip(hs[-1][:degree], hs[-1][degree:])]
-        assert len(hs[-1]) == degree
+    left_factors: List[List[int]] = []
+    right_factors: List[List[int]] = []
+    expected_product_by_foil: List[List[int]] = []
+    while len(left_factors) < SAMPLE_SIZE:
+        new_left_factor = [randbelow(modulus) for _ in range(degree)]
+        left_factors += [new_left_factor]
 
-    return modulus, root_order, root, root_inv, fs, gs, hs
+        new_right_factor = [randbelow(modulus) for _ in range(degree)]
+        right_factors += [new_right_factor]
+
+        new_expected_product_by_foil = [0 for _ in range(root_order)]
+        for i, a in enumerate(new_left_factor):
+            for j, b in enumerate(new_right_factor):
+                new_expected_product_by_foil[i+j] += a*b % modulus
+        new_expected_product_by_foil = [(x - y) % modulus for x, y in zip(new_expected_product_by_foil[:degree], new_expected_product_by_foil[degree:])]
+        expected_product_by_foil += [new_expected_product_by_foil]
+
+        assert len(expected_product_by_foil[-1]) == degree
+    return modulus, root_order, root, root_inv, left_factors, right_factors, expected_product_by_foil
 
 
 def test_ntt_poly_mult(some_random_polynomials_and_their_product):
-    modulus, root_order, root, root_inv, fs, gs, expected_vals = some_random_polynomials_and_their_product
-    for f, g, expected_val in zip(fs, gs, expected_vals):
-        observed_val = ntt_poly_mult(f=f, g=g, modulus=modulus, root=root, inv_root=root_inv, root_order=root_order)
+    modulus, root_order, root, root_inv, left_factors, right_factors, expected_vals = some_random_polynomials_and_their_product
+    for left_factor, right_factor, expected_val in zip(left_factors, right_factors, expected_vals):
+        observed_val = ntt_poly_mult(f=left_factor, g=right_factor, modulus=modulus, root=root, inv_root=root_inv, root_order=root_order)
         assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))

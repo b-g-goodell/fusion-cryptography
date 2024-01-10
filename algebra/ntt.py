@@ -3,7 +3,7 @@ The ntt module handles the Number Theoretic Transform (NTT) and its inverse in c
 """
 from copy import deepcopy
 from math import ceil, log2
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, Tuple, List
 
 CACHED_PRIMITIVE_ROOTS: Dict[Tuple[int, int], int] = {}
 CACHED_IS_ODD_PRIME: Dict[int, bool] = {}
@@ -11,7 +11,7 @@ CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY: Dict[Tuple[int, int], bool] = {}
 CACHED_IS_POW_TWO_GEQ_TWO: Dict[int, bool] = {}
 CACHED_IS_ROOT_OF_UNITY: Dict[Tuple[int, int, int], bool] = {}
 CACHED_IS_PRIMITIVE_ROOT_OF_UNITY: Dict[Tuple[int, int, int], bool] = {}
-CACHED_FIND_PRIMITIVE_ROOT: Dict[Tuple[int, int], Optional[int]] = {}
+CACHED_FIND_PRIMITIVE_ROOT: Dict[Tuple[int, int], int] = {}
 
 
 def is_odd_prime(val: int) -> bool:
@@ -73,7 +73,7 @@ def bit_reverse_copy(val: list):
     :rtype: list
     """
     if not isinstance(val, list):
-        raise ValueError("Input must be a list")
+        raise TypeError("Input must be a list")
     n: int = len(val)
     k: int = n.bit_length() - 1
     bit_reversed_indices: List[int] = [
@@ -105,11 +105,16 @@ def cent(val: int, modulus: int, halfmod: int, logmod: int) -> int:
     ):
         raise TypeError("Input must be integers")
     elif modulus < 2:
-        raise ValueError("Modulus must be at least 2")
+        raise ValueError(f"Modulus must be at least 2, had {modulus}")
     elif halfmod < 1:
-        raise ValueError("Halfmod must be at least 1")
+        raise ValueError(f"Halfmod must be at least 1, had {halfmod}")
     elif logmod < 1:
-        raise ValueError("Logmod must be at least 1")
+        raise ValueError(f"Logmod must be at least 1, had {logmod}")
+    elif 2**(logmod-1) >= modulus or modulus > 2**logmod:
+        raise ValueError(f"Logmod must bound the modulus, had 2**(logmod-1)={2**(logmod-1)}, 2**logmod={2**logmod},"
+                         + " and modulus={modulus}")
+    elif halfmod != modulus//2:
+        raise ValueError(f"Halfmod must be half modulus, but had halfmod={halfmod} and modulus={modulus}")
     y: int = val % modulus
     intermediate_value: int = y - halfmod - 1
     z: int = y - (1 + (intermediate_value >> logmod)) * modulus
@@ -181,7 +186,7 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
     :type modulus: int
     :param root_order: Order of the root of unity
     :type root_order: int
-    :return r: root of unity r such that r**root_order == 1 modulo q and r**i != 1 modulo q for all i in range(1, root_order)
+    :return r: root of unity r such that r**root_order % q == 1 and r**i % q != 1 for all i in range(1, root_order)
     :rtype: int
     """
     if (modulus, root_order) not in CACHED_FIND_PRIMITIVE_ROOT:
@@ -200,10 +205,53 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
                 r += 1
             if not is_primitive_root(val=r, modulus=modulus, root_order=root_order):
                 raise RuntimeError(
-                    f"No primitive root found with modulus={modulus}, root_order={root_order}. This error should never occur."
+                    f"No primitive root found with modulus={modulus}, root_order={root_order}."
                 )
             CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)] = r
     return CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)]
+
+
+def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, powers: List[int], inv_flag: bool):
+    if not isinstance(val, list):
+        raise TypeError(f"val must be a list, but got {type(val)}")
+    elif not isinstance(modulus, int):
+        raise TypeError(f"modulus must be an int, but got {type(modulus)}")
+    elif not isinstance(root_order, int):
+        raise TypeError(f"root_order must be an int, but got {type(root_order)}")
+    elif not all(isinstance(v, int) for v in val):
+        raise TypeError(f"val must be a list of ints, but got {type(val)}")
+    elif not is_odd_prime(val=modulus):
+        raise ValueError(f"modulus={modulus} must be an odd prime")
+    elif not has_primitive_root_of_unity(modulus=modulus, root_order=root_order):
+        raise ValueError(
+            f"modulus={modulus} does not have a primitive root of order root_order={root_order}"
+        )
+    elif not is_pow_two_geq_two(val=len(val)):
+        raise ValueError(f"len(val)={len(val)} must be a power of 2 greater than 1")
+    elif root_order != 2 * len(val) and root_order != len(val):
+        raise ValueError(
+            f"root_order={root_order} must be degree or twice the degree, {len(val)}"
+        )
+    elif root_order == len(val):
+        raise NotImplementedError(
+            f"root_order={root_order}=degree={len(val)} is not implemented"
+        )
+    elif not isinstance(powers, list):
+        raise TypeError(
+            f"root_powers must be a list, but got {type(powers)}"
+        )
+    elif not all(isinstance(v, int) for v in powers):
+        raise TypeError(
+            f"root_powers must be a list of ints, but got {type(powers)}"
+        )
+    elif not inv_flag and find_primitive_root(modulus=modulus, root_order=root_order) != bit_reverse_copy(powers)[1]:
+        raise ValueError(
+            f"Need root={find_primitive_root(modulus=modulus, root_order=root_order)} == {bit_reverse_copy(powers)[1]} for NTT to be valid"
+        )
+    elif inv_flag and pow(find_primitive_root(modulus=modulus, root_order=root_order), modulus - 2, modulus) != bit_reverse_copy(powers)[1]:
+        raise ValueError(
+            f"Need inv_root={pow(find_primitive_root(modulus=modulus, root_order=root_order), modulus - 2, modulus)} == {bit_reverse_copy(powers)[1]} for INTT to be valid"
+        )
 
 
 def cooley_tukey_ntt(
@@ -229,38 +277,7 @@ def cooley_tukey_ntt(
     :return val: Output list of integers
     :rtype: List[int]
     """
-    if not isinstance(val, list):
-        raise TypeError(f"val must be a list, but got {type(val)}")
-    elif not isinstance(modulus, int):
-        raise TypeError(f"modulus must be an int, but got {type(modulus)}")
-    elif not isinstance(bit_rev_root_powers, list):
-        raise TypeError(
-            f"root_powers must be a list, but got {type(bit_rev_root_powers)}"
-        )
-    elif not all(isinstance(v, int) for v in bit_rev_root_powers):
-        raise TypeError(
-            f"root_powers must be a list of ints, but got {type(bit_rev_root_powers)}"
-        )
-    elif not isinstance(root_order, int):
-        raise TypeError(f"root_order must be an int, but got {type(root_order)}")
-    elif not all(isinstance(v, int) for v in val):
-        raise TypeError(f"val must be a list of ints, but got {type(val)}")
-    elif not is_odd_prime(val=modulus):
-        raise ValueError(f"modulus={modulus} must be an odd prime")
-    elif not has_primitive_root_of_unity(modulus=modulus, root_order=root_order):
-        raise ValueError(
-            f"modulus={modulus} does not have a primitive root of order root_order={root_order}"
-        )
-    elif not is_pow_two_geq_two(val=len(val)):
-        raise ValueError(f"len(val)={len(val)} must be a power of 2 greater than 1")
-    elif root_order != 2 * len(val) and root_order != len(val):
-        raise ValueError(
-            f"root_order={root_order} must be degree or twice the degree, {len(val)}"
-        )
-    elif root_order == len(val):
-        raise NotImplementedError(
-            f"root_order={root_order}=degree={len(val)} is not implemented"
-        )
+    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, powers=bit_rev_root_powers, inv_flag=False)
     halfmod: int = modulus // 2
     logmod: int = ceil(log2(modulus))
     u: int
@@ -306,38 +323,7 @@ def gentleman_sande_intt(
     :return val: Output list of integers
     :rtype: List[int]
     """
-    if not isinstance(val, list):
-        raise TypeError(f"val must be a list, but got {type(val)}")
-    elif not isinstance(modulus, int):
-        raise TypeError(f"modulus must be an int, but got {type(modulus)}")
-    elif not isinstance(bit_rev_inv_root_powers, list):
-        raise TypeError(
-            f"inv_root_powers must be a list, but got {type(bit_rev_inv_root_powers)}"
-        )
-    elif not all(isinstance(v, int) for v in bit_rev_inv_root_powers):
-        raise TypeError(
-            f"inv_root_powers must be a list of ints, but got {type(bit_rev_inv_root_powers)}"
-        )
-    elif not isinstance(root_order, int):
-        raise TypeError(f"root_order must be an int, but got {type(root_order)}")
-    elif not all(isinstance(v, int) for v in val):
-        raise TypeError(f"val must be a list of ints, but got {type(val)}")
-    elif not is_odd_prime(val=modulus):
-        raise ValueError(f"modulus={modulus} must be an odd prime")
-    elif not has_primitive_root_of_unity(modulus=modulus, root_order=root_order):
-        raise ValueError(
-            f"modulus={modulus} does not have a primitive root of order root_order={root_order}"
-        )
-    elif not is_pow_two_geq_two(val=len(val)):
-        raise ValueError(f"len(val)={len(val)} must be a power of 2 greater than 1")
-    elif root_order != 2 * len(val) and root_order != len(val):
-        raise ValueError(
-            f"root_order={root_order} must be degree or twice the degree, {len(val)}"
-        )
-    elif root_order == len(val):
-        raise NotImplementedError(
-            f"root_order={root_order}=degree={len(val)} is not implemented"
-        )
+    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, powers=bit_rev_inv_root_powers, inv_flag=True)
     halfmod: int = modulus // 2
     logmod: int = ceil(log2(modulus))
     u: int
@@ -354,12 +340,8 @@ def gentleman_sande_intt(
             s: int = bit_rev_inv_root_powers[h + i]
             for j in range(j_one, j_two + 1):
                 u, v = val[j], val[j + t]
-                val[j] = cent(
-                    val=u + v, modulus=modulus, halfmod=halfmod, logmod=logmod
-                )
-                val[j + t] = cent(
-                    val=(u - v) * s, modulus=modulus, halfmod=halfmod, logmod=logmod
-                )
+                val[j] = cent(val=u + v, modulus=modulus, halfmod=halfmod, logmod=logmod)
+                val[j + t] = cent(val=(u - v) * s, modulus=modulus, halfmod=halfmod, logmod=logmod)
             j_one += 2 * t
         t *= 2
         m = h
@@ -386,9 +368,9 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, root: int, inv_root:
     :param modulus: Integer modulus
     :type modulus: int
     :param root: Root of unity
-    :type root: int | None
+    :type root: int
     :param inv_root: Inverse of the root of unity
-    :type inv_root: int | None
+    :type inv_root: int
     :param root_order: Order of the root of unity
     :type root_order: int
     :return fg:
@@ -426,15 +408,10 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, root: int, inv_root:
     halfmod: int = modulus // 2
     logmod: int = modulus.bit_length()
     n: int = len(f)
-    r: Optional[int] = root
-    if r is None:
-        r: int = find_primitive_root(modulus=modulus, root_order=root_order)
-    root_powers: List[int] = [pow(r, i, modulus) for i in range(n)]
+    root_powers: List[int] = [pow(root, i, modulus) for i in range(n)]
     bit_rev_root_powers: List[int] = bit_reverse_copy(val=root_powers)
-    inv_r: Optional[int] = inv_root
-    if inv_r is None:
-        inv_r: int = pow(r, modulus - 2, modulus)
-    inv_root_powers: List[int] = [pow(inv_r, i, modulus) for i in range(n)]
+    inv_root: int = pow(root, modulus - 2, modulus)
+    inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(n)]
     bit_rev_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
     deepcopy_f: List[int] = deepcopy(f)
     deepcopy_g: List[int] = deepcopy(g)
