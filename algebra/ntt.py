@@ -44,15 +44,8 @@ def has_primitive_root_of_unity(modulus: int, root_order: int) -> bool:
     """
     if (modulus, root_order) not in CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY:
         CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)] = False
-        if (
-            isinstance(modulus, int)
-            and isinstance(root_order, int)
-            and modulus >= 3
-            and root_order >= 2
-        ):
-            CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)] = (
-                modulus - 1
-            ) % root_order == 0
+        if isinstance(modulus, int) and isinstance(root_order, int) and modulus >= 3 and root_order >= 2:
+            CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)] = (modulus - 1) % root_order == 0
     return CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)]
 
 
@@ -270,23 +263,21 @@ def cooley_tukey_ntt(
         )
     halfmod: int = modulus // 2
     logmod: int = ceil(log2(modulus))
+    u: int
+    v: int
     n: int = len(val)
-    t = n
-    m = 1
+    t: int = n
+    m: int = 1
     while m < len(val):
         t //= 2
         for i in range(m):
-            j_one = 2 * i * t
-            j_two = j_one + t - 1
-            s = bit_rev_root_powers[m + i]
+            j_one: int = 2 * i * t
+            j_two: int = j_one + t - 1
+            s: int = bit_rev_root_powers[m + i]
             for j in range(j_one, j_two + 1):
                 u, v = val[j], val[j + t] * s
-                val[j] = cent(
-                    val=u + v, modulus=modulus, halfmod=halfmod, logmod=logmod
-                )
-                val[j + t] = cent(
-                    val=u - v, modulus=modulus, halfmod=halfmod, logmod=logmod
-                )
+                val[j] = cent(val=u + v, modulus=modulus, halfmod=halfmod, logmod=logmod)
+                val[j + t] = cent(val=u - v, modulus=modulus, halfmod=halfmod, logmod=logmod)
         m *= 2
     return val
 
@@ -349,16 +340,18 @@ def gentleman_sande_intt(
         )
     halfmod: int = modulus // 2
     logmod: int = ceil(log2(modulus))
+    u: int
+    v: int
     n: int = len(val)
     n_inv: int = pow(n, modulus - 2, modulus)
-    t = 1
-    m = n
+    t: int = 1
+    m: int = n
     while m > 1:
-        j_one = 0
-        h = m // 2
+        j_one: int = 0
+        h: int = m // 2
         for i in range(h):
-            j_two = j_one + t - 1
-            s = bit_rev_inv_root_powers[h + i]
+            j_two: int = j_one + t - 1
+            s: int = bit_rev_inv_root_powers[h + i]
             for j in range(j_one, j_two + 1):
                 u, v = val[j], val[j + t]
                 val[j] = cent(
@@ -371,17 +364,13 @@ def gentleman_sande_intt(
         t *= 2
         m = h
     for j in range(n):
-        val[j] = cent(
-            val=val[j] * n_inv, modulus=modulus, halfmod=halfmod, logmod=logmod
-        )
+        val[j] = cent(val=val[j] * n_inv, modulus=modulus, halfmod=halfmod, logmod=logmod)
     return val
 
 
-def ntt_poly_mult(
-    f: List[int], g: List[int], modulus: int, root: int, inv_root: int, root_order: int
-) -> List[int]:
+def ntt_poly_mult(f: List[int], g: List[int], modulus: int, root: int, inv_root: int, root_order: int) -> List[int]:
     """
-    Input two coefficient representations of polynomials, f(X), g(X), and output INTT(NTT(f(X)) * NTT(g(X))). Depends on
+    Input two coefficient representations of polynomials, f(X), g(X), and output INTT(NTT(f(X)) * NTT(g(X))).
     Input should have:
         - modulus is an odd prime
         - root_order is a power of 2
@@ -447,21 +436,23 @@ def ntt_poly_mult(
         inv_r: int = pow(r, modulus - 2, modulus)
     inv_root_powers: List[int] = [pow(inv_r, i, modulus) for i in range(n)]
     bit_rev_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
+    deepcopy_f: List[int] = deepcopy(f)
+    deepcopy_g: List[int] = deepcopy(g)
     cooley_tukey_ntt(
-        val=f,
+        val=deepcopy_f,
         modulus=modulus,
         root_order=root_order,
         bit_rev_root_powers=bit_rev_root_powers,
     )
     cooley_tukey_ntt(
-        val=g,
+        val=deepcopy_g,
         modulus=modulus,
         root_order=root_order,
         bit_rev_root_powers=bit_rev_root_powers,
     )
     fg: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(f, g)
+        for x, y in zip(deepcopy_f, deepcopy_g)
     ]
     gentleman_sande_intt(
         val=fg,
@@ -469,128 +460,4 @@ def ntt_poly_mult(
         root_order=root_order,
         bit_rev_inv_root_powers=bit_rev_inv_root_powers,
     )
-    gentleman_sande_intt(
-        val=f,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-    )
-    gentleman_sande_intt(
-        val=g,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-    )
-    return fg
-
-
-def ntt_poly_mult_half(
-    f: List[int], g: List[int], modulus: int, root: int, inv_root: int, root_order: int
-) -> List[int]:
-    if (
-        not isinstance(f, list)
-        or not isinstance(g, list)
-        or not isinstance(modulus, int)
-        or not isinstance(root, int)
-        or not isinstance(inv_root, int)
-        or not isinstance(root_order, int)
-    ):
-        raise ValueError(
-            "Input f and g must be lists of integers, input modulus must be integer, and input root and inv_root must be integer."
-        )
-    elif not is_odd_prime(val=modulus):
-        raise ValueError("Modulus must be an odd prime.")
-    elif not is_pow_two_geq_two(val=root_order):
-        raise ValueError(
-            "Root order must be a power of two greater than or equal to 2."
-        )
-    elif not len(f) == len(g) == root_order:
-        raise ValueError(
-            "Polynomials must have equal length and length equal to root_order."
-        )
-    elif not has_primitive_root_of_unity(modulus=modulus, root_order=root_order):
-        raise ValueError(
-            "Modulus does not have a primitive root of unity of order root_order."
-        )
-    elif not is_primitive_root(val=root, modulus=modulus, root_order=root_order):
-        raise ValueError("Input root must be a primitive root of unity.")
-    elif not (root * inv_root) % modulus == 1:
-        raise ValueError("Input inv_root must be the inverse of the root of unity.")
-    halfmod: int = modulus // 2
-    logmod: int = ceil(log2(modulus))
-    root_powers: List[int] = [pow(root, i, modulus) for i in range(root_order)]
-    bit_rev_root_powers: List[int] = bit_reverse_copy(val=root_powers)
-    inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(root_order)]
-    bit_rev_inv_root_powers: List[int] = bit_reverse_copy(val=inv_root_powers)
-
-    f_evens: List[int] = f[::2]
-    f_odds: List[int] = f[1::2]
-    g_evens: List[int] = g[::2]
-    g_odds: List[int] = g[1::2]
-
-    cooley_tukey_ntt(
-        val=f_evens,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_root_powers=bit_rev_root_powers,
-    )
-    cooley_tukey_ntt(
-        val=f_odds,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_root_powers=bit_rev_root_powers,
-    )
-    cooley_tukey_ntt(
-        val=g_evens,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_root_powers=bit_rev_root_powers,
-    )
-    cooley_tukey_ntt(
-        val=g_odds,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_root_powers=bit_rev_root_powers,
-    )
-
-    f_evens_times_g_evens: List[int] = [
-        cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(f_evens, g_evens)
-    ]
-    f_evens_times_g_odds: List[int] = [
-        cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(f_evens, g_odds)
-    ]
-    f_odds_times_g_evens: List[int] = [
-        cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(f_odds, g_evens)
-    ]
-    f_odds_times_g_odds: List[int] = [
-        cent(val=r * x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for r, x, y in zip(bit_rev_root_powers, f_odds, g_odds)
-    ]
-
-    fg_evens: List[int] = [
-        cent(val=x + y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for r, x, y in zip(f_evens_times_g_evens, f_odds_times_g_odds)
-    ]
-    fg_odds: List[int] = [
-        cent(val=x + y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(f_evens_times_g_odds, f_odds_times_g_evens)
-    ]
-
-    gentleman_sande_intt(
-        val=fg_evens,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-    )
-    gentleman_sande_intt(
-        val=fg_odds,
-        modulus=modulus,
-        root_order=root_order,
-        bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-    )
-
-    fg: List[int] = [elem for pair in zip(fg_evens, fg_odds) for elem in pair]
     return fg

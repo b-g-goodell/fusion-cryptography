@@ -1,22 +1,21 @@
 import pytest
-from copy import deepcopy
-from random import randrange
 from typing import List, Tuple
-
+from secrets import randbelow
 from algebra.ntt import (
     is_odd_prime,
-    find_primitive_root,
+    is_pow_two_geq_two,
     has_primitive_root_of_unity,
-    is_primitive_root,
-    ntt_poly_mult,
-    cooley_tukey_ntt,
-    gentleman_sande_intt,
     bit_reverse_copy,
     cent,
+    is_root_of_unity,
+    is_primitive_root,
+    find_primitive_root,
+    cooley_tukey_ntt,
+    gentleman_sande_intt,
+    ntt_poly_mult,
 )
 
 SAMPLE_SIZE: int = 2**5
-
 IS_ODD_PRIME_TEST_DATA = [
     (3, True),
     (4, False),
@@ -24,455 +23,183 @@ IS_ODD_PRIME_TEST_DATA = [
     (6, False),
     (29, True),
     (30, False),
-    (1, False),  # Note: 1 is not a prime number
-    (2, False),  # Note: Testing even number, even though function is meant for odd primes
+    (1, False),
+    (2, False),
 ]
-
-@pytest.fixture(scope="module", params=IS_ODD_PRIME_TEST_DATA)
-def prime_data(request):
-    return request.param
-
-def test_is_odd_prime(prime_data):
-    number, expected_result = prime_data
-    observed_result = is_odd_prime(number)
-    assert is_odd_prime(number) == expected_result
-
-
-
+IS_POW_TWO_GEQ_TWO_TEST_DATA = [
+    (3, False),
+    (2, True),
+    (1, False),
+    (0.5, False),
+    (4, True),
+    (8, True),
+    (7, False)
+]
 LOG2_D_MIN: int = 2
 LOG2_D_MAX: int = 6
 Q_MAX: int = 2**17
-TEST_2D_Q_PAIRS: List[Tuple[int, int]] = []
-
+PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE: List[Tuple[int, int]] = []
 for log2d in range(LOG2_D_MIN, LOG2_D_MAX + 1):
-    d: int = 1 << log2d
-    q: int = 2 * d + 1
-    while q < Q_MAX:
-        while not is_odd_prime(q) and q < Q_MAX:
-            q += 2 * d
-        if is_odd_prime(q) and q < Q_MAX:
-            TEST_2D_Q_PAIRS.append((d, q))
-            find_primitive_root(
-                modulus=q, root_order=2 * d
-            )  # precompute roots of unity.
-            q *= 2
-            q -= (q - 1) % (2 * d)
-            assert (q - 1) % (2 * d) == 0
+    tmp_d: int = 1 << log2d
+    tmp_q: int = 2 * tmp_d + 1
+    while tmp_q < Q_MAX:
+        while not is_odd_prime(tmp_q) and tmp_q < Q_MAX:
+            tmp_q += 2 * tmp_d
+        if is_odd_prime(tmp_q) and tmp_q < Q_MAX:
+            PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE.append((tmp_d, tmp_q))
+            find_primitive_root(modulus=tmp_q, root_order=2 * tmp_d)
+            tmp_q *= 2
+            tmp_q -= (tmp_q - 1) % (2 * tmp_d)
+            assert (tmp_q - 1) % (2 * tmp_d) == 0
+HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA = [
+    (17, 2, True),
+    (17, 4, True),
+    (17, 8, True),
+    (17, 16, True),
+    (17, 3, False),
+    (17, 5, False),
+    (17, 6, False),
+    (17, 7, False)
+]
+BIT_REVERSE_COPY_TEST_DATA = [
+    ([0, 1, 2, 3], [0, 2, 1, 3]),
+    ([0, 1, 2, 3, 4, 5, 6, 7], [0, 4, 2, 6, 1, 5, 3, 7])
+]
+CENT_TEST_DATA = [
+    (0, 17, 8, 5, 0),
+    (1, 17, 8, 5, 1),
+    (2, 17, 8, 5, 2),
+    (3, 17, 8, 5, 3),
+    (4, 17, 8, 5, 4),
+    (5, 17, 8, 5, 5),
+    (6, 17, 8, 5, 6),
+    (7, 17, 8, 5, 7),
+    (8, 17, 8, 5, 8),
+    (9, 17, 8, 5, -8),
+    (10, 17, 8, 5, -7),
+    (11, 17, 8, 5, -6),
+    (12, 17, 8, 5, -5),
+    (13, 17, 8, 5, -4),
+    (14, 17, 8, 5, -3),
+    (15, 17, 8, 5, -2),
+    (16, 17, 8, 5, -1),
+]
+IS_ROOT_OF_UNITY_TEST_DATA = [
+    (3, 17, 16, True),
+    (2, 17, 16, True),
+]
+IS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA = [
+    (3, 17, 16, True),
+    (2, 17, 16, False),
+]
+FIND_PRIMITIVE_ROOT_TEST_DATA = [
+    (17, 16, 3),
+    (257, 128, 9)
+]
+COOLEY_TUKEY_NTT_TEST_DATA = [
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 1, 0, 0, 0, 0, 0, 0], [-8, 8, 8, -8, -2, 2, 2, -2]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 0, 1, 0, 0, 0, 0, 0], [-4, -4, 4, 4, 4, 4, -4, -4]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 0, 0, 1, 0, 0, 0, 0], [-2, 2, -2, 2, -8, 8, -8, 8]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 0, 0, 0, 1, 0, 0, 0], [-1, -1, -1, -1, 1, 1, 1, 1]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 0, 0, 0, 0, 1, 0, 0], [8, -8, -8, 8, -2, 2, 2, -2]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 0, 0, 0, 0, 0, 1, 0], [4, 4, -4, -4, 4, 4, -4, -4]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)], bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]), [0, 0, 0, 0, 0, 0, 0, 1], [2, -2, 2, -2, -8, 8, -8, 8]),
+]
+GENTLEMAN_SANDE_INTT_TEST_DATA = [
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [1, 0, 0, 0, 0, 0, 0, 0], [-2, -4, -8, 1, 2, 4, 8, -1]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 1, 0, 0, 0, 0, 0, 0], [-2, 4, -8, -1, 2, -4, 8, 1]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 0, 1, 0, 0, 0, 0, 0], [-2, 4, 8, 1, 2, -4, -8, -1]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 0, 0, 1, 0, 0, 0, 0], [-2, -4, 8, -1, 2, 4, -8, 1]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 0, 0, 0, 1, 0, 0, 0], [-2, 1, 8, -4, -2, 1, 8, -4]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 0, 0, 0, 0, 1, 0, 0], [-2, -1, 8, 4, -2, -1, 8, 4]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 0, 0, 0, 0, 0, 1, 0], [-2, -1, -8, -4, -2, -1, -8, -4]),
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17), [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)], bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]), [0, 0, 0, 0, 0, 0, 0, 1], [-2, 1, -8, 4, -2, 1, -8, 4]),
+]
+NTT_POLY_MULT_TEST_DATA = [
+    (17, 16, find_primitive_root(modulus=17, root_order=16), pow(find_primitive_root(modulus=17, root_order=16), 15, 17)),
+]
 
 
-@pytest.fixture(scope="module", params=TEST_2D_Q_PAIRS)
-def two_d_q_pair(request):
-    return request.param
+@pytest.mark.parametrize('number, expected_result', IS_ODD_PRIME_TEST_DATA)
+def test_is_odd_prime(number, expected_result):
+    assert is_odd_prime(val=number) == expected_result
 
 
-def test_two_d_q_pair(two_d_q_pair):
-    d, q = two_d_q_pair
-    root_order: int = 2 * d
-    assert has_primitive_root_of_unity(modulus=q, root_order=root_order)
-    r: int = find_primitive_root(modulus=q, root_order=root_order)
-    assert is_primitive_root(val=r, modulus=q, root_order=root_order)
-    inv_r: int = pow(r, q - 2, q)
-    assert (r * inv_r) % q == 1
+@pytest.mark.parametrize('number, expected_result', IS_POW_TWO_GEQ_TWO_TEST_DATA)
+def test_is_pow_two_geq_two(number, expected_result):
+    assert is_pow_two_geq_two(val=number) == expected_result
 
 
-def test_inverse(two_d_q_pair):
-    d, q = two_d_q_pair
-    x = randrange(1, q)
-    assert pow(x, q - 1, q) == 1
-    y = pow(x, q - 2, q)
-    assert (x * y) % q == 1
+@pytest.mark.parametrize('modulus, root_order, expected_result', HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA)
+def test_has_primitive_root_of_unity(modulus, root_order, expected_result):
+    assert has_primitive_root_of_unity(modulus=modulus, root_order=root_order) == expected_result
 
 
-@pytest.fixture(params=range(SAMPLE_SIZE))
-def polynomials(two_d_q_pair, request):
-    d, q = two_d_q_pair
-    f = [randrange(q) for _ in range(d)]
-    g = [randrange(q) for _ in range(d)]
-    return f, g
+@pytest.mark.parametrize('some_list, expected_result', BIT_REVERSE_COPY_TEST_DATA)
+def test_bit_reverse_copy(some_list, expected_result):
+    assert bit_reverse_copy(val=some_list) == expected_result
+    assert bit_reverse_copy(val=expected_result) == some_list
 
 
-@pytest.fixture
-def expected_polynomial(two_d_q_pair, polynomials):
-    d, q = two_d_q_pair
-    f, g = polynomials
-    expected_h = [0 for _ in range(2 * d)]
-    # foil
-    for i, next_f in enumerate(f):
-        for j, next_g in enumerate(g):
-            expected_h[i + j] += next_f * next_g
-    # reduce
-    return [(x - y) % q for x, y in zip(expected_h[:d], expected_h[d:])]
+@pytest.mark.parametrize('val, modulus, halfmod, logmod, expected_value', CENT_TEST_DATA)
+def test_cent(val, modulus, halfmod, logmod, expected_value):
+    assert halfmod == modulus//2
+    assert 2**(logmod-1) < modulus <= 2**logmod
+    assert cent(val=val, modulus=modulus, halfmod=halfmod, logmod=logmod) == expected_value
 
 
-def test_ntt_poly_mult(two_d_q_pair, polynomials, expected_polynomial):
-    d, q = two_d_q_pair
-    f, g = polynomials
-    root_order: int = 2 * d
-    r: int = find_primitive_root(modulus=q, root_order=root_order)
-    inv_r: int = pow(r, q - 2, q)
+@pytest.mark.parametrize('val, modulus, root_order, expected_value', IS_ROOT_OF_UNITY_TEST_DATA)
+def test_is_root_of_unity(val, modulus, root_order, expected_value):
+    assert is_root_of_unity(val=val, modulus=modulus, root_order=root_order) == expected_value
 
-    # pick two random polynomials with degree bound d
-    f: List[int] = [randrange(q) for _ in range(d)]
-    g: List[int] = [randrange(q) for _ in range(d)]
 
-    # Expected polynomial multiplication by foiling then reducing mod X**d + 1
-    expected_h: List[int] = [0 for _ in range(2 * d)]
-    # foil
-    for i, next_f in enumerate(f):
-        for j, next_g in enumerate(g):
-            expected_h[i + j] += next_f * next_g
-    # reduce
-    expected_h: List[int] = [
-        (x - y) % q for x, y in zip(expected_h[:d], expected_h[d:])
-    ]
-    assert len(expected_h) == d
+@pytest.mark.parametrize('val, modulus, root_order, expected_value', IS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA)
+def test_is_primitive_root_of_unity(val, modulus, root_order, expected_value):
+    assert is_primitive_root(val=val, modulus=modulus, root_order=root_order) == expected_value
 
-    # NTT-multiply-INTT
-    observed_h: List[int] = ntt_poly_mult(
-        f=f, g=g, modulus=q, root=r, inv_root=inv_r, root_order=root_order
-    )
-    assert len(observed_h) == d
-    assert all((x - y) % q == 0 for x, y in zip(expected_h, observed_h))
 
-#
-# def test_ntt_poly_mult_monomials(two_d_q_pair):
-#     # test that X**i * X**j = X**(i+j) mod (X**d + 1) for all i, j in range(d)
-#     d, q = two_d_q_pair
-#     root_order: int = 2 * d
-#     assert has_primitive_root_of_unity(modulus=q, root_order=root_order)
-#     r: int = find_primitive_root(modulus=q, root_order=root_order)
-#     assert is_primitive_root(val=r, modulus=q, root_order=root_order)
-#     inv_r: int = pow(r, q - 2, q)
-#     assert (r * inv_r) % q == 1
-#     for non_zero_coefficient_in_f in range(d):
-#         f: List[int] = [0 for _ in range(d)]
-#         f[non_zero_coefficient_in_f] = 1
-#         for non_zero_coefficient_in_g in range(d):
-#             g: List[int] = [0 for _ in range(d)]
-#             g[non_zero_coefficient_in_g] = 1
-#
-#             expected_h: List[int] = [0 for _ in range(2 * d)]
-#             expected_h[
-#                 non_zero_coefficient_in_f + non_zero_coefficient_in_g
-#             ] = 1
-#             # reduce
-#             expected_h = [
-#                 (x - y) % q for x, y in zip(expected_h[:d], expected_h[d:])
-#             ]
-#             try:
-#                 assert all(
-#                     expected_h[i] % q == 0
-#                     for i in range(d)
-#                     if i
-#                     != (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                     % d
-#                 )
-#             except AssertionError:
-#                 print()
-#                 assert all(
-#                     expected_h[i] % q == 0
-#                     for i in range(d)
-#                     if i
-#                     != (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                     % d
-#                 )
-#             if non_zero_coefficient_in_f + non_zero_coefficient_in_g >= d:
-#                 assert (
-#                     expected_h[
-#                         (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                         % d
-#                     ]
-#                     + 1
-#                 ) % q == 0
-#             else:
-#                 assert (
-#                     expected_h[
-#                         (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                         % d
-#                     ]
-#                     - 1
-#                 ) % q == 0
-#             observed_h: List[int] = ntt_poly_mult(
-#                 f=f,
-#                 g=g,
-#                 modulus=q,
-#                 root=r,
-#                 inv_root=inv_r,
-#                 root_order=root_order,
-#             )
-#             try:
-#                 assert len(observed_h) == len(expected_h) == d
-#             except AssertionError:
-#                 print()
-#                 assert len(observed_h) == len(expected_h) == d
-#             try:
-#                 assert all(
-#                     (x - y) % q == 0 for x, y in zip(expected_h, observed_h)
-#                 )
-#             except AssertionError:
-#                 print()
-#                 assert all(
-#                     (x - y) % q == 0 for x, y in zip(expected_h, observed_h)
-#                 )
-#
-#
-# def test_ntt_poly_mult_scalars_with_monomials():
-#     # test that aX**i * bX**j = (ab)X**(i+j) mod (q, X**d + 1) for all i, j in range(d)
-#     touched_d = dict()
-#     for d, q in TEST_2D_Q_PAIRS:
-#         if d not in touched_d:
-#             touched_d[d] = True
-#             # Make some parameters
-#             root_order: int = 2 * d
-#             assert has_primitive_root_of_unity(modulus=q, root_order=root_order)
-#             r: int = find_primitive_root(modulus=q, root_order=root_order)
-#             assert is_primitive_root(val=r, modulus=q, root_order=root_order)
-#             inv_r: int = pow(r, q - 2, q)
-#             assert (r * inv_r) % q == 1
-#             for non_zero_coefficient_in_f in range(d):
-#                 f: List[int] = [0 for _ in range(d)]
-#                 f[non_zero_coefficient_in_f] = randrange(1, q)
-#                 for non_zero_coefficient_in_g in range(d):
-#                     g: List[int] = [0 for _ in range(d)]
-#                     g[non_zero_coefficient_in_g] = randrange(1, q)
-#
-#                     expected_h: List[int] = [0 for _ in range(2 * d)]
-#                     expected_h[
-#                         non_zero_coefficient_in_f + non_zero_coefficient_in_g
-#                     ] = (f[non_zero_coefficient_in_f] * g[non_zero_coefficient_in_g])
-#                     # reduce
-#                     expected_h = [
-#                         (x - y) % q for x, y in zip(expected_h[:d], expected_h[d:])
-#                     ]
-#                     try:
-#                         assert all(
-#                             expected_h[i] % q == 0
-#                             for i in range(d)
-#                             if i
-#                             != (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                             % d
-#                         )
-#                     except AssertionError:
-#                         print()
-#                         assert all(
-#                             expected_h[i] % q == 0
-#                             for i in range(d)
-#                             if i
-#                             != (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                             % d
-#                         )
-#                     if non_zero_coefficient_in_f + non_zero_coefficient_in_g >= d:
-#                         assert (
-#                             expected_h[
-#                                 (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                                 % d
-#                             ]
-#                             + (
-#                                 (
-#                                     f[non_zero_coefficient_in_f]
-#                                     * g[non_zero_coefficient_in_g]
-#                                 )
-#                                 % q
-#                             )
-#                         ) % q == 0
-#                     else:
-#                         assert (
-#                             expected_h[
-#                                 (non_zero_coefficient_in_f + non_zero_coefficient_in_g)
-#                                 % d
-#                             ]
-#                             - (
-#                                 (
-#                                     f[non_zero_coefficient_in_f]
-#                                     * g[non_zero_coefficient_in_g]
-#                                 )
-#                                 % q
-#                             )
-#                         ) % q == 0
-#                     observed_h: List[int] = ntt_poly_mult(
-#                         f=f,
-#                         g=g,
-#                         modulus=q,
-#                         root=r,
-#                         inv_root=inv_r,
-#                         root_order=root_order,
-#                     )
-#                     try:
-#                         assert len(observed_h) == len(expected_h) == d
-#                     except AssertionError:
-#                         print()
-#                         assert len(observed_h) == len(expected_h) == d
-#                     try:
-#                         assert all(
-#                             (x - y) % q == 0 for x, y in zip(expected_h, observed_h)
-#                         )
-#                     except AssertionError:
-#                         print()
-#                         assert all(
-#                             (x - y) % q == 0 for x, y in zip(expected_h, observed_h)
-#                         )
-#
-#
-# def test_poly_mult_simple():
-#     modulus = 17
-#     halfmod = 8
-#     logmod = 5
-#     root_order = 16
-#     degree_bound = 8
-#     root = find_primitive_root(modulus=modulus, root_order=root_order)
-#     root_powers = [root**i for i in range(degree_bound)]
-#     inv_root = pow(root, modulus - 2, modulus)
-#     inv_root_powers = [inv_root**i for i in range(degree_bound)]
-#     assert all((x * y) % modulus == 1 for x, y in zip(root_powers, inv_root_powers))
-#     bit_rev_root_powers = bit_reverse_copy(root_powers)
-#     bit_rev_inv_root_powers = bit_reverse_copy(inv_root_powers)
-#
-#     f_coefs = [0, 1, 0, 0, 0, 0, 0, 0]
-#     cooley_tukey_ntt(
-#         val=f_coefs,
-#         modulus=modulus,
-#         root_order=root_order,
-#         bit_rev_root_powers=bit_rev_root_powers,
-#     )  # in place transformation
-#     ntt_of_f_coefs = deepcopy(f_coefs)
-#     gentleman_sande_intt(
-#         val=f_coefs,
-#         modulus=modulus,
-#         root_order=root_order,
-#         bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-#     )  # in place transformation
-#
-#     g_coefs = [1, 2, 3, 4, 5, 6, 7, 8]
-#     cooley_tukey_ntt(
-#         val=g_coefs,
-#         modulus=modulus,
-#         root_order=root_order,
-#         bit_rev_root_powers=bit_rev_root_powers,
-#     )  # in place transformation
-#     ntt_of_g_coefs = deepcopy(g_coefs)
-#     gentleman_sande_intt(
-#         val=g_coefs,
-#         modulus=modulus,
-#         root_order=root_order,
-#         bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-#     )  # in place transformation
-#
-#     fg_coefs_from_ntt_poly_mult = ntt_poly_mult(
-#         f=f_coefs,
-#         g=g_coefs,
-#         modulus=modulus,
-#         root=root,
-#         inv_root=inv_root,
-#         root_order=root_order,
-#     )
-#
-#     h_from_foiling = [0 for _ in range(2 * degree_bound)]
-#     for i, f_coef in enumerate(f_coefs):
-#         for j, g_coef in enumerate(g_coefs):
-#             h_from_foiling[i + j] += f_coef * g_coef
-#     h_from_foiling = [
-#         cent(val=x - y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-#         for x, y in zip(h_from_foiling[:degree_bound], h_from_foiling[degree_bound:])
-#     ]
-#
-#     another_equivalent_form_of_h = [-8, 1, 2, 3, 4, 5, 6, 7]
-#     assert len(h_from_foiling) == len(another_equivalent_form_of_h) == degree_bound
-#     for x, y in zip(h_from_foiling, another_equivalent_form_of_h):
-#         assert (x - y) % modulus == 0  # equivalent?
-#
-#     # expected cooley_tukey_ntt of h_from_foiling
-#     cooley_tukey_ntt(
-#         val=h_from_foiling,
-#         modulus=modulus,
-#         root_order=root_order,
-#         bit_rev_root_powers=bit_rev_root_powers,
-#     )  # in-place transfomration
-#     ntt_of_h_from_foiling = deepcopy(h_from_foiling)
-#     # transform h_from_foiling back
-#     gentleman_sande_intt(
-#         val=h_from_foiling,
-#         modulus=modulus,
-#         root_order=root_order,
-#         bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-#     )  # in-place transformation
-#
-#     # Now check that component-wise product of ntt_of_f_coefs and ntt_of_g_coefs is equivalent to ntt_of_h_from_foiling
-#     component_wise_product_of_ntt_of_f_and_ntt_of_g = [
-#         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-#         for x, y in zip(ntt_of_f_coefs, ntt_of_g_coefs)
-#     ]
-#     for x, y in zip(
-#         component_wise_product_of_ntt_of_f_and_ntt_of_g, ntt_of_h_from_foiling
-#     ):
-#         assert (x - y) % modulus == 0  # equivalent?
-#
-#
-# def test_ntt_poly_mult_basic():
-#     for d, q in TEST_2D_Q_PAIRS:
-#         # Make some parameters
-#         root_order: int = 2 * d
-#         assert has_primitive_root_of_unity(modulus=q, root_order=root_order)
-#         r: int = find_primitive_root(modulus=q, root_order=root_order)
-#         assert is_primitive_root(val=r, modulus=q, root_order=root_order)
-#         inv_r: int = pow(r, q - 2, q)
-#         assert (r * inv_r) % q == 1
-#
-#         for _ in range(TEST_SAMPLE_SIZE):
-#             # pick two random polynomials with degree bound d
-#             f: List[int] = [randrange(q) for _ in range(d)]
-#             g: List[int] = [randrange(q) for _ in range(d)]
-#
-#             # Constructed expected f(X)*g(X) by foiling then reducing mod X**d + 1
-#             expected_h: List[int] = [0 for _ in range(2 * d)]
-#             # foil
-#             for i, next_f in enumerate(f):
-#                 for j, next_g in enumerate(g):
-#                     expected_h[i + j] += next_f * next_g
-#             # reduce
-#             expected_h: List[int] = [
-#                 (x - y) % q for x, y in zip(expected_h[:d], expected_h[d:])
-#             ]
-#             assert len(expected_h) == d
-#
-#             # NTT-multiply-INTT
-#             observed_h: List[int] = ntt_poly_mult(
-#                 f=f, g=g, modulus=q, root=r, inv_root=inv_r, root_order=root_order
-#             )
-#             assert len(observed_h) == d
-#             assert all((x - y) % q == 0 for x, y in zip(expected_h, observed_h))
-#
-#
-# def test_ntt_poly_mult_against_one():
-#     # Make some parameters
-#     q: int = 5
-#     d: int = 2
-#     root_order: int = 2 * d
-#     assert has_primitive_root_of_unity(modulus=q, root_order=root_order)
-#     r: int = find_primitive_root(modulus=q, root_order=root_order)
-#     assert is_primitive_root(val=r, modulus=q, root_order=root_order)
-#     inv_r: int = pow(r, q - 2, q)
-#     assert (r * inv_r) % q == 1
-#
-#     for _ in range(TEST_SAMPLE_SIZE):
-#         # pick two random polynomials with degree bound d
-#         one: List[int] = [1] + [0 for _ in range(d - 1)]
-#         g: List[int] = [randrange(q) for _ in range(d)]
-#
-#         # Constructed expected f(X)*g(X) by foiling then reducing mod X**d + 1
-#         expected_h: List[int] = [0 for _ in range(2 * d)]
-#         # foil
-#         for i, next_f in enumerate(one):
-#             for j, next_g in enumerate(g):
-#                 expected_h[i + j] += next_f * next_g
-#         # reduce
-#         expected_h: List[int] = [
-#             (x - y) % q for x, y in zip(expected_h[:d], expected_h[d:])
-#         ]
-#         assert len(expected_h) == d
-#
-#         # NTT-multiply-INTT
-#         observed_h: List[int] = ntt_poly_mult(
-#             f=one, g=g, modulus=q, root=r, inv_root=inv_r, root_order=root_order
-#         )
-#         assert len(observed_h) == d
-#         assert all((x - y) % q == 0 for x, y in zip(expected_h, observed_h))
+@pytest.mark.parametrize('modulus, root_order, expected_value', FIND_PRIMITIVE_ROOT_TEST_DATA)
+def test_find_primitive_root(modulus, root_order, expected_value):
+    assert find_primitive_root(modulus=modulus, root_order=root_order) == expected_value
+
+
+@pytest.mark.parametrize('modulus, root_order, root, root_inv, root_powers, bit_rev_root_powers, val, expected_val', COOLEY_TUKEY_NTT_TEST_DATA)
+def test_cooley_tukey(modulus, root_order, root, root_inv, root_powers, bit_rev_root_powers, val, expected_val):
+    observed_val = cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order, bit_rev_root_powers=bit_rev_root_powers)
+    assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
+
+
+@pytest.mark.parametrize('modulus, root_order, root, root_inv, root_inv_powers, bit_rev_root_inv_powers, val, expected_val', GENTLEMAN_SANDE_INTT_TEST_DATA)
+def test_gentleman_sande(modulus, root_order, root, root_inv, root_inv_powers, bit_rev_root_inv_powers, val, expected_val):
+    observed_val = gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=bit_rev_root_inv_powers)
+    assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
+
+
+@pytest.fixture(params=NTT_POLY_MULT_TEST_DATA)
+def some_random_polynomials_and_their_product(request):
+    modulus, root_order, root, root_inv = request.param
+    degree = root_order//2
+    fs: List[List[int]] = []
+    gs: List[List[int]] = []
+    hs: List[List[int]] = []
+    while len(fs) < SAMPLE_SIZE:
+        fs += [[randbelow(modulus) for _ in range(degree)]]
+        gs += [[randbelow(modulus) for _ in range(degree)]]
+        hs += [[0 for _ in range(root_order)]]  # twice as long
+        assert len(hs[-1]) == root_order
+        # by foiling
+        for i, a in enumerate(fs[-1]):
+            for j, b in enumerate(gs[-1]):
+                hs[-1][i+j] += a*b % modulus
+        hs[-1] = [(x - y) % modulus for x, y in zip(hs[-1][:degree], hs[-1][degree:])]
+        assert len(hs[-1]) == degree
+
+    return modulus, root_order, root, root_inv, fs, gs, hs
+
+
+def test_ntt_poly_mult(some_random_polynomials_and_their_product):
+    modulus, root_order, root, root_inv, fs, gs, expected_vals = some_random_polynomials_and_their_product
+    for f, g, expected_val in zip(fs, gs, expected_vals):
+        observed_val = ntt_poly_mult(f=f, g=g, modulus=modulus, root=root, inv_root=root_inv, root_order=root_order)
+        assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
