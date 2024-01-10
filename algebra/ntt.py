@@ -358,85 +358,80 @@ def gentleman_sande_intt(
     return val
 
 
+def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, halfmod: int, logmod: int, root_order: int, root: int,
+              inv_root: int, brv_root_powers: List[int], brv_inv_root_powers: List[int]):
+    # Re-use existing check functions for common checks
+    check_modulus_halfmod_logmod(modulus, halfmod, logmod)
+
+    # Check for both f and g using check_ntt_and_intt
+    for val in [f, g]:
+        check_ntt_and_intt(val, modulus, root_order, brv_root_powers, False, halfmod, logmod)
+
+    # Perform unique checks for ntt_poly_mult function
+    if not isinstance(root, int) or not isinstance(inv_root, int):
+        raise TypeError("Parameters root and inv_root must be integers.")
+    elif not is_primitive_root(purported_root=root, modulus=modulus, root_order=root_order):
+        raise ValueError("Root must be a primitive root of unity.")
+    elif (root * inv_root) % modulus != 1:
+        raise ValueError("Inv_root must be the inverse of the root of unity.")
+    elif len(f) != len(g) or len(f) != root_order // 2 or len(f) != degree:
+        raise ValueError("f and g must have the same length and be of length root_order // 2.")
+    pass
+
+
 def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod: int, degree: int, root_order: int, root: int, inv_root: int, brv_root_powers: List[int], brv_inv_root_powers: List[int]) -> List[int]:
     """
     Multiply two coefficient representations of polynomials by first computing their NTTs
     and then their Hadamard product before inverting the NTT.
     """
-    if (
-        not isinstance(f, list)
-        or not all(isinstance(x, int) for x in f)
-        or not isinstance(g, list)
-        or not all(isinstance(x, int) for x in g)
-        or not isinstance(modulus, int)
-        or not isinstance(halfmod, int)
-        or not isinstance(logmod, int)
-        or not isinstance(degree, int)
-        or not isinstance(root_order, int)
-        or not isinstance(root, int)
-        or not isinstance(inv_root, int)
-        or not isinstance(brv_root_powers, list)
-        or not all(isinstance(x, int) for x in brv_root_powers)
-        or not isinstance(brv_inv_root_powers, list)
-        or not all(isinstance(x, int) for x in brv_inv_root_powers)
-    ):
-        raise TypeError("Inputs modulus, halfmod, logmod, degree, root_order, root, and inv_root must be integers, and f, g, brv_root_powers, and brv_inv_root_powers must be lists of integers.")
-    elif not is_odd_prime(val=modulus):
-        raise ValueError("Modulus must be an odd prime.")
-    elif not has_primitive_root_of_unity(modulus=modulus, root_order=root_order):
-        raise ValueError("Modulus does not have primitive root of unity of appropriate order.")
-    elif not is_primitive_root(purported_root=root, modulus=modulus, root_order=root_order):
-        raise ValueError(f"Incorrect root of unity")
-    elif (root*inv_root) % modulus != 1:
-        raise ValueError(f"Incorrect root inverse.")
-    elif modulus//2 != halfmod:
-        raise ValueError(f"Incorrect halfmod")
-    elif 2**(logmod-1) >= modulus or 2**logmod < modulus:
-        raise ValueError(f"Incorrect logmod")
-    elif root_order != 2*degree:
-        raise ValueError(f"Root order must be twice degree")
-    elif not all((x-y) % modulus == 0 for x, y in zip(bit_reverse_copy(brv_root_powers), [pow(base=root, exp=i, mod=modulus) for i in range(root_order)])):
-        raise ValueError(f"Provided root powers are not correct.")
-    elif not all((x-y) % modulus == 0 for x, y in zip(bit_reverse_copy(brv_inv_root_powers), [pow(base=inv_root, exp=i, mod=modulus) for i in range(root_order)])):
-        raise ValueError(f"Provided inv_root powers are not correct.")
-    derived_halfmod: int = modulus // 2
-    derived_logmod: int = ceil(log2(modulus))
-    derived_root_powers: List[int] = [pow(root, i, modulus) for i in range(root_order)]
-    derived_brv_root_powers: List[int] = bit_reverse_copy(val=derived_root_powers)
-    derived_inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(root_order)]
-    derived_brv_inv_root_powers: List[int] = bit_reverse_copy(val=derived_inv_root_powers)
-    if derived_halfmod != halfmod or derived_logmod != logmod or derived_brv_root_powers != brv_root_powers or derived_brv_inv_root_powers != brv_inv_root_powers:
-        raise ValueError("Input data does not match derivations")
-    deepcopy_f: List[int] = deepcopy(f)
-    deepcopy_g: List[int] = deepcopy(g)
+    check_ntt_poly_mult(f=f, g=g, modulus=modulus, halfmod=halfmod, logmod=logmod, degree=degree, root_order=root_order, root=root, inv_root=inv_root, brv_root_powers=brv_root_powers, brv_inv_root_powers=brv_inv_root_powers)
+    root_powers: List[int] = [pow(root, i, modulus) for i in range(degree)]
+    brv_root_powers: List[int] = bit_reverse_copy(val=root_powers)
+    inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(degree)]
+    brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
     cooley_tukey_ntt(
-        val=deepcopy_f,
+        val=f,
         modulus=modulus,
-        root_order=root_order,
-        bit_rev_root_powers=brv_root_powers,
         halfmod=halfmod,
         logmod=logmod,
-    )
-    cooley_tukey_ntt(
-        val=deepcopy_g,
-        modulus=modulus,
         root_order=root_order,
         bit_rev_root_powers=brv_root_powers,
+    )
+    cooley_tukey_ntt(
+        val=g,
+        modulus=modulus,
         halfmod=halfmod,
         logmod=logmod,
+        root_order=root_order,
+        bit_rev_root_powers=brv_root_powers,
     )
-    fg_hat: List[int] = [
+    fg: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(deepcopy_f, deepcopy_g)
+        for x, y in zip(f, g)
     ]
-    fg = deepcopy(fg_hat)
     gentleman_sande_intt(
         val=fg,
         modulus=modulus,
-        root_order=root_order,
-        bit_rev_inv_root_powers=brv_inv_root_powers,
         halfmod=halfmod,
         logmod=logmod,
+        root_order=root_order,
+        bit_rev_inv_root_powers=brv_inv_root_powers,
+    )
+    gentleman_sande_intt(
+        val=f,
+        modulus=modulus,
+        halfmod=halfmod,
+        logmod=logmod,
+        root_order=root_order,
+        bit_rev_inv_root_powers=brv_inv_root_powers,
+    )
+    gentleman_sande_intt(
+        val=g,
+        modulus=modulus,
+        halfmod=halfmod,
+        logmod=logmod,
+        root_order=root_order,
+        bit_rev_inv_root_powers=brv_inv_root_powers,
     )
     return fg
 
