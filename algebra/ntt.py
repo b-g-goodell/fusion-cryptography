@@ -39,8 +39,7 @@ Example usage:
     assert all((x-y) % modulus == 0 for x, y in zip(one_poly, one_poly_hat_hat))
 
 """
-from copy import deepcopy
-from math import ceil, log2
+from math import ceil
 from typing import Dict, Tuple, List, Union
 
 CACHED_PRIMITIVE_ROOTS: Dict[Tuple[int, int], int] = {}
@@ -79,7 +78,10 @@ def has_primitive_root_of_unity(modulus: int, root_order: int) -> bool:
     if not isinstance(modulus, int) or not isinstance(root_order, int):
         raise TypeError(f"Modulus and root order must be integers, not {(type(modulus), type(root_order))}")
     elif (modulus, root_order) not in CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY:
-        CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)] = modulus >= 3 and root_order >= 2 and (modulus - 1) % root_order == 0
+        CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)] = (
+                modulus >= 3
+                and root_order >= 2
+                and (modulus - 1) % root_order == 0)
     return CACHED_HAS_PRIMITIVE_ROOT_OF_UNITY[(modulus, root_order)]
 
 
@@ -170,7 +172,10 @@ def is_root_of_unity(purported_root: int, modulus: int, root_order: int) -> bool
     if not isinstance(purported_root, int) or not isinstance(modulus, int) or not isinstance(root_order, int):
         raise TypeError("Input must be integers")
     if (purported_root, modulus, root_order) not in CACHED_IS_ROOT_OF_UNITY:
-        CACHED_IS_ROOT_OF_UNITY[(purported_root, modulus, root_order)] = modulus >= 3 and root_order >= 2 and pow(purported_root, root_order, modulus) == 1
+        CACHED_IS_ROOT_OF_UNITY[(purported_root, modulus, root_order)] = (
+                modulus >= 3
+                and root_order >= 2
+                and pow(purported_root, root_order, modulus) == 1)
     return CACHED_IS_ROOT_OF_UNITY[(purported_root, modulus, root_order)]
 
 
@@ -216,13 +221,16 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
             r += 1
         if not is_primitive_root(purported_root=r, modulus=modulus, root_order=root_order):
             raise RuntimeError(
-                f"No primitive root found with modulus={modulus}, root_order={root_order}, despite that has_primitive_root_of_unity returned True."
+                f"No primitive root found with modulus={modulus}, root_order={root_order}, despite that"
+                + f"has_primitive_root_of_unity returned True."
             )
         CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)] = r
     return CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)]
 
 
-def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers: List[int], inv_flag: bool, halfmod: int, logmod: int):
+def check_ntt_and_intt(
+        val: List[int], modulus: int, root_order: int, brv_powers: List[int], inv_flag: bool, halfmod: int, logmod: int
+):
     if not isinstance(val, list) or not all(isinstance(x, int) for x in val):
         raise TypeError("input val must be a list of integers")
     elif not isinstance(modulus, int):
@@ -253,12 +261,17 @@ def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers
         raise ValueError(f"halfmod must be half the modulus")
     elif 2**(logmod-1) >= modulus or 2**logmod < modulus:
         raise ValueError(f"logmod does not properly capture bit length of modulus")
-    elif not inv_flag and find_primitive_root(modulus=modulus, root_order=root_order) != bit_reverse_copy(brv_powers)[1]:
+    elif (not inv_flag
+          and find_primitive_root(modulus=modulus, root_order=root_order) != bit_reverse_copy(brv_powers)[1]):
         raise ValueError(
-            f"Need root={find_primitive_root(modulus=modulus, root_order=root_order)} == {bit_reverse_copy(brv_powers)[1]}"
-            + " to compute forward NTT"
+            f"Need root={find_primitive_root(modulus=modulus, root_order=root_order)} =="
+            + f" {bit_reverse_copy(brv_powers)[1]} to compute forward NTT"
         )
-    elif inv_flag and pow(find_primitive_root(modulus=modulus, root_order=root_order), modulus - 2, modulus) != bit_reverse_copy(brv_powers)[1]:
+    elif (pow(
+            find_primitive_root(modulus=modulus, root_order=root_order),
+            modulus - 2,
+            modulus)
+          != bit_reverse_copy(brv_powers)[1] and inv_flag):
         raise ValueError(
             f"Need inv_root={pow(find_primitive_root(modulus=modulus, root_order=root_order), modulus - 2, modulus)}"
             + f" == {bit_reverse_copy(brv_powers)[1]} for INTT to be valid"
@@ -286,10 +299,15 @@ def cooley_tukey_ntt(
     :type root_order: int
     :param bit_rev_root_powers:
     :type bit_rev_root_powers: List[int]
+    :param halfmod: Half the modulus
+    :type halfmod: int
+    :param logmod: Bit length of modulus
+    :type logmod: int
     :return val: Output list of integers
     :rtype: List[int]
     """
-    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_root_powers, inv_flag=False, halfmod=halfmod, logmod=logmod)
+    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_root_powers, inv_flag=False,
+                       halfmod=halfmod, logmod=logmod)
     u: int
     v: int
     n: int = len(val)
@@ -326,6 +344,10 @@ def gentleman_sande_intt(
     :type val: List[int]
     :param modulus:
     :type modulus: int
+    :param halfmod: Half the modulus
+    :type halfmod: int
+    :param logmod: Bit length of modulus
+    :type logmod: int
     :param root_order:
     :type root_order: int
     :param bit_rev_inv_root_powers:
@@ -333,7 +355,8 @@ def gentleman_sande_intt(
     :return val: Output list of integers
     :rtype: List[int]
     """
-    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_inv_root_powers, inv_flag=True, halfmod=halfmod, logmod=logmod)
+    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_inv_root_powers,
+                       inv_flag=True, halfmod=halfmod, logmod=logmod)
     u: int
     v: int
     n: int = len(val)
@@ -358,8 +381,8 @@ def gentleman_sande_intt(
     return val
 
 
-def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, halfmod: int, logmod: int, root_order: int, root: int,
-              inv_root: int, brv_root_powers: List[int], brv_inv_root_powers: List[int]):
+def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, halfmod: int, logmod: int,
+                        root_order: int, root: int, inv_root: int, brv_root_powers: List[int]):
     # Re-use existing check functions for common checks
     check_modulus_halfmod_logmod(modulus, halfmod, logmod)
 
@@ -379,12 +402,14 @@ def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, h
     pass
 
 
-def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod: int, degree: int, root_order: int, root: int, inv_root: int, brv_root_powers: List[int], brv_inv_root_powers: List[int]) -> List[int]:
+def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod: int, degree: int, root_order: int,
+                  root: int, inv_root: int, brv_root_powers: List[int]) -> List[int]:
     """
     Multiply two coefficient representations of polynomials by first computing their NTTs
     and then their Hadamard product before inverting the NTT.
     """
-    check_ntt_poly_mult(f=f, g=g, modulus=modulus, halfmod=halfmod, logmod=logmod, degree=degree, root_order=root_order, root=root, inv_root=inv_root, brv_root_powers=brv_root_powers, brv_inv_root_powers=brv_inv_root_powers)
+    check_ntt_poly_mult(f=f, g=g, modulus=modulus, halfmod=halfmod, logmod=logmod, degree=degree, root_order=root_order,
+                        root=root, inv_root=inv_root, brv_root_powers=brv_root_powers)
     root_powers: List[int] = [pow(root, i, modulus) for i in range(degree)]
     brv_root_powers: List[int] = bit_reverse_copy(val=root_powers)
     inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(degree)]
@@ -434,4 +459,3 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
         bit_rev_inv_root_powers=brv_inv_root_powers,
     )
     return fg
-
