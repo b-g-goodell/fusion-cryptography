@@ -399,6 +399,14 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
         raise ValueError(f"Provided root powers are not correct.")
     elif not all((x-y) % modulus == 0 for x, y in zip(bit_reverse_copy(brv_inv_root_powers), [pow(base=inv_root, exp=i, mod=modulus) for i in range(root_order)])):
         raise ValueError(f"Provided inv_root powers are not correct.")
+    derived_halfmod: int = modulus // 2
+    derived_logmod: int = ceil(log2(modulus))
+    derived_root_powers: List[int] = [pow(root, i, modulus) for i in range(root_order)]
+    derived_brv_root_powers: List[int] = bit_reverse_copy(val=derived_root_powers)
+    derived_inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(root_order)]
+    derived_brv_inv_root_powers: List[int] = bit_reverse_copy(val=derived_inv_root_powers)
+    if derived_halfmod != halfmod or derived_logmod != logmod or derived_brv_root_powers != brv_root_powers or derived_brv_inv_root_powers != brv_inv_root_powers:
+        raise ValueError("Input data does not match derivations")
     deepcopy_f: List[int] = deepcopy(f)
     deepcopy_g: List[int] = deepcopy(g)
     cooley_tukey_ntt(
