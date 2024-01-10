@@ -26,18 +26,22 @@ def _derived_params(val: List[int], modulus: int, inv_flag: bool) -> Tuple[int, 
 def _fwd_ntt_api(val: List[int], modulus: int) -> List[int]:
     """ Compute the forward NTT with cooley_tukey_ntt"""
     halfmod, logmod, degree, root_order, root, brv_root_powers = _derived_params(val=val, modulus=modulus, inv_flag=False)
-    return cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers, halfmod=halfmod, logmod=logmod)
+    return cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
+                            halfmod=halfmod, logmod=logmod, root=0)
 
 
 def _inv_ntt_api(val: List[int], modulus: int) -> List[int]:
     """ Compute the inverse NTT with gentleman_sande_intt"""
     halfmod, logmod, degree, root_order, inv_root, brv_inv_root_powers = _derived_params(val=val, modulus=modulus, inv_flag=True)
-    return gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers, halfmod=halfmod, logmod=logmod)
+    return gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order,
+                                bit_rev_inv_root_powers=brv_inv_root_powers, halfmod=halfmod, logmod=logmod, inv_root=0)
 
 
 def ntt_api(val: List[int], modulus: int, inv_flag: bool) -> List[int]:
     """ Input a list of integers, a modulus, and a flag indicating forward or inverse, output the NTT"""
     halfmod, logmod, degree, root_order, root, powers = _derived_params(val=val, modulus=modulus, inv_flag=inv_flag)
     if not inv_flag:
-        return cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order, bit_rev_root_powers=powers, halfmod=halfmod, logmod=logmod)
-    return gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=powers, halfmod=halfmod, logmod=logmod)
+        return cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order, bit_rev_root_powers=powers,
+                                halfmod=halfmod, logmod=logmod, root=0)
+    return gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=powers,
+                                halfmod=halfmod, logmod=logmod, inv_root=0)

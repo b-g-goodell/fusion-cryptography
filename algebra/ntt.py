@@ -228,9 +228,8 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
     return CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)]
 
 
-def check_ntt_and_intt(
-        val: List[int], modulus: int, root_order: int, brv_powers: List[int], inv_flag: bool, halfmod: int, logmod: int
-):
+def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers: List[int], inv_flag: bool,
+                       halfmod: int, logmod: int, root: int, inv_root: int):
     if not isinstance(val, list) or not all(isinstance(x, int) for x in val):
         raise TypeError("input val must be a list of integers")
     elif not isinstance(modulus, int):
@@ -263,9 +262,9 @@ def check_ntt_and_intt(
         raise ValueError(f"logmod does not properly capture bit length of modulus")
     elif (not inv_flag
           and find_primitive_root(modulus=modulus, root_order=root_order) != bit_reverse_copy(brv_powers)[1]):
+        fpr = find_primitive_root(modulus=modulus, root_order=root_order)
         raise ValueError(
-            f"Need root={find_primitive_root(modulus=modulus, root_order=root_order)} =="
-            + f" {bit_reverse_copy(brv_powers)[1]} to compute forward NTT"
+            f"Need root(={fpr}) to == brv_power = {bit_reverse_copy(brv_powers)[1]} to compute forward NTT"
         )
     elif (pow(
             find_primitive_root(modulus=modulus, root_order=root_order),
@@ -279,9 +278,8 @@ def check_ntt_and_intt(
     pass
 
 
-def cooley_tukey_ntt(
-    val: List[int], modulus: int, root_order: int, bit_rev_root_powers: List[int], halfmod: int, logmod: int,
-) -> List[int]:
+def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root_powers: List[int], halfmod: int,
+                     logmod: int, root) -> List[int]:
     """
     Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*n, and a list of integers, root_powers, which are powers of a primitive
@@ -307,7 +305,7 @@ def cooley_tukey_ntt(
     :rtype: List[int]
     """
     check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_root_powers, inv_flag=False,
-                       halfmod=halfmod, logmod=logmod)
+                       halfmod=halfmod, logmod=logmod, root=root, inv_root=pow(base=root, exp=modulus - 2, mod=modulus))
     u: int
     v: int
     n: int = len(val)
@@ -327,9 +325,8 @@ def cooley_tukey_ntt(
     return val
 
 
-def gentleman_sande_intt(
-    val: List[int], modulus: int, root_order: int, bit_rev_inv_root_powers: List[int], halfmod: int, logmod: int
-) -> List[int]:
+def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_inv_root_powers: List[int],
+                         halfmod: int, logmod: int, inv_root) -> List[int]:
     """
     Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*n, and a list of integers, inv_root_powers, which are powers of the
@@ -356,7 +353,8 @@ def gentleman_sande_intt(
     :rtype: List[int]
     """
     check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_inv_root_powers,
-                       inv_flag=True, halfmod=halfmod, logmod=logmod)
+                       inv_flag=True, halfmod=halfmod, logmod=logmod,
+                       root=pow(base=inv_root, exp=modulus - 2, mod=modulus), inv_root=inv_root)
     u: int
     v: int
     n: int = len(val)
@@ -388,7 +386,7 @@ def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, h
 
     # Check for both f and g using check_ntt_and_intt
     for val in [f, g]:
-        check_ntt_and_intt(val, modulus, root_order, brv_root_powers, False, halfmod, logmod)
+        check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=brv_root_powers, inv_flag=False, halfmod=halfmod, logmod=logmod, root=root, inv_root=inv_root)
 
     # Perform unique checks for ntt_poly_mult function
     if not isinstance(root, int) or not isinstance(inv_root, int):
@@ -414,48 +412,18 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
     brv_root_powers: List[int] = bit_reverse_copy(val=root_powers)
     inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(degree)]
     brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
-    cooley_tukey_ntt(
-        val=f,
-        modulus=modulus,
-        halfmod=halfmod,
-        logmod=logmod,
-        root_order=root_order,
-        bit_rev_root_powers=brv_root_powers,
-    )
-    cooley_tukey_ntt(
-        val=g,
-        modulus=modulus,
-        halfmod=halfmod,
-        logmod=logmod,
-        root_order=root_order,
-        bit_rev_root_powers=brv_root_powers,
-    )
+    cooley_tukey_ntt(val=f, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
+                     halfmod=halfmod, logmod=logmod, root=0)
+    cooley_tukey_ntt(val=g, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
+                     halfmod=halfmod, logmod=logmod, root=0)
     fg: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
         for x, y in zip(f, g)
     ]
-    gentleman_sande_intt(
-        val=fg,
-        modulus=modulus,
-        halfmod=halfmod,
-        logmod=logmod,
-        root_order=root_order,
-        bit_rev_inv_root_powers=brv_inv_root_powers,
-    )
-    gentleman_sande_intt(
-        val=f,
-        modulus=modulus,
-        halfmod=halfmod,
-        logmod=logmod,
-        root_order=root_order,
-        bit_rev_inv_root_powers=brv_inv_root_powers,
-    )
-    gentleman_sande_intt(
-        val=g,
-        modulus=modulus,
-        halfmod=halfmod,
-        logmod=logmod,
-        root_order=root_order,
-        bit_rev_inv_root_powers=brv_inv_root_powers,
-    )
+    gentleman_sande_intt(val=fg, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
+                         halfmod=halfmod, logmod=logmod, inv_root=0)
+    gentleman_sande_intt(val=f, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
+                         halfmod=halfmod, logmod=logmod, inv_root=0)
+    gentleman_sande_intt(val=g, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
+                         halfmod=halfmod, logmod=logmod, inv_root=0)
     return fg

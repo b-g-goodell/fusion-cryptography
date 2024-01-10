@@ -234,7 +234,7 @@ def test_find_primitive_root(modulus, root_order, expected_value):
 def test_cooley_tukey(modulus, halfmod, logmod, root_order, root, root_inv, root_powers, bit_rev_root_powers, val,
                       expected_val):
     observed_val = cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order,
-                                    bit_rev_root_powers=bit_rev_root_powers, halfmod=halfmod, logmod=logmod)
+                                    bit_rev_root_powers=bit_rev_root_powers, halfmod=halfmod, logmod=logmod, root=0)
     assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
 
 
@@ -244,7 +244,8 @@ def test_cooley_tukey(modulus, halfmod, logmod, root_order, root, root_inv, root
 def test_gentleman_sande(modulus, halfmod, logmod, root_order, root, root_inv, root_inv_powers, bit_rev_root_inv_powers,
                          val, expected_val):
     observed_val = gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order,
-                                        bit_rev_inv_root_powers=bit_rev_root_inv_powers, halfmod=halfmod, logmod=logmod)
+                                        bit_rev_inv_root_powers=bit_rev_root_inv_powers, halfmod=halfmod, logmod=logmod,
+                                        inv_root=0)
     assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
 
 
