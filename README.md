@@ -26,8 +26,8 @@ from typing import List
 
 from fusion.fusion import (
     fusion_setup,
-    keygen,
-    sign,
+    fusion_keygen,
+    fusion_sign,
     aggregate,
     verify,
     OneTimeKeyTuple,
@@ -46,7 +46,7 @@ a: Params = fusion_setup(secpar)
 print(f"Setup completed with security parameter {secpar} and seed {seed}.")
 
 # 2. Generate N one-time key pairs
-keys: List[OneTimeKeyTuple] = [keygen(a) for _ in range(2)]
+keys: List[OneTimeKeyTuple] = [fusion_keygen(a) for _ in range(2)]
 print(f"Generated {len(keys)} key pairs.")
 
 # 3. Sign N messages using the key pairs
@@ -54,7 +54,7 @@ messages: List[str] = [
     "".join(random.choices(string.ascii_letters + string.digits, k=20))
     for _ in range(num_signatures)
 ]
-sigs: List[Signature] = [sign(a, key, message) for key, message in zip(keys, messages)]
+sigs: List[Signature] = [fusion_sign(a, key, message) for key, message in zip(keys, messages)]
 print(f"Signed {len(messages)} messages.")
 
 # 4. Aggregate signatures from the signed messages

@@ -5,13 +5,13 @@ from math import ceil, log2
 
 from fusion.fusion import aggregate
 from fusion.fusion import fusion_setup
-from fusion.fusion import _hash_ag
+from fusion.fusion import _make_agg_coefs
 from fusion.fusion import _hash_ch
-from fusion.fusion import _hash_message_to_int
-from fusion.fusion import _hash_vk_and_int_to_bytes
+from fusion.fusion import _pre_hash_msg_to_int_digest
+from fusion.fusion import _hash_vk_and_pre_hashed_msg_to_bytes_digest
 from fusion.fusion import _hash_vks_and_ints_and_challs_to_bytes
-from fusion.fusion import keygen
-from fusion.fusion import sign
+from fusion.fusion import fusion_keygen
+from fusion.fusion import fusion_sign
 from fusion.fusion import verify
 
 print()
@@ -57,7 +57,7 @@ for secpar in secpar_values:
     for i in range(10):
         random_seed_sks += [random.randint(0, 2**32 - 1)]
         random_msgs += [str(i)]
-        otks += [keygen(params)]
+        otks += [fusion_keygen(params)]
 
         file_path = os.path.join(dir_name, f"fusion_keygen_KAT_{secpar}.csv")
         with open(file_path, "a", newline="") as file:
@@ -66,7 +66,7 @@ for secpar in secpar_values:
 
         otsks += [otks[i][0]]
         otvks += [otks[i][1]]
-        prehashed_msgs += [_hash_message_to_int(params, random_msgs[i])]
+        prehashed_msgs += [_pre_hash_msg_to_int_digest(params, random_msgs[i])]
 
         file_path = os.path.join(
             dir_name, f"intermediate_hash_message_to_int_KAT_{secpar}.csv"
@@ -86,7 +86,7 @@ for secpar in secpar_values:
             + params.degree * bytes_per_index
         )
         sig_chall_bytes += [
-            _hash_vk_and_int_to_bytes(params, otvks[i], prehashed_msgs[i], n)
+            _hash_vk_and_pre_hashed_msg_to_bytes_digest(params, otvks[i], prehashed_msgs[i], 0)
         ]
 
         file_path = os.path.join(
@@ -110,7 +110,7 @@ for secpar in secpar_values:
                 [str((params, otvks[i], random_msgs[i])), str(sig_challs[-1])]
             )
 
-        sigs += [sign(params, otks[i], random_msgs[i])]
+        sigs += [fusion_sign(params, otks[i], random_msgs[i])]
 
         file_path = os.path.join(dir_name, f"fusion_sign_KAT_{secpar}.csv")
         with open(file_path, "a", newline="") as file:
@@ -128,7 +128,7 @@ for secpar in secpar_values:
             [str((params, otks, prehashed_msgs, sig_challs)), str(agg_coefs_bytes)]
         )
 
-    agg_coefs = _hash_ag(params, otks, random_msgs)
+    agg_coefs = _make_agg_coefs(params, otks, random_msgs)
 
     file_path = os.path.join(dir_name, f"intermediate_hash_ag_KAT_{secpar}.csv")
     with open(file_path, "a", newline="") as file:

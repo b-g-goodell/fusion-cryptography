@@ -141,7 +141,7 @@ class GeneralMatrix:
         ]
         return GeneralMatrix(matrix=resulting_matrix)
 
-    def norm(self, p: Union[int, str]):
+    def norm(self, p: Union[int, str] = "infty"):
         if not all(hasattr(z, "norm") for y in self.matrix for z in y):
             raise NotImplementedError("Matrix elements must have a norm method")
         elif p == "infty":
