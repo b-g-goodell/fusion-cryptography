@@ -56,7 +56,7 @@ class PolynomialRepresentation(object):
     @property
     def logmod(self) -> int:
         if self.modulus not in cached_logmods:
-            cached_logmods[self.modulus] = self.modulus.bit_length() - 1
+            cached_logmods[self.modulus] = self.modulus.bit_length()
         return cached_logmods[self.modulus]
 
 
@@ -195,14 +195,13 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
         for i, x in enumerate(self.coefficients):
             for j, y in enumerate(other.coefficients):
                 c[i + j] += x * y
-        c: List[int] = [
-            cent(
+        c = [cent(
                 val=x - y,
                 modulus=self.modulus,
                 halfmod=self.halfmod,
                 logmod=self.logmod,
             )
-            for x, y in zip(c[: self.degree], c[self.degree :])
+            for x, y in zip(c[:self.degree], c[self.degree:])
         ]
         return PolynomialCoefficientRepresentation(
             modulus=self.modulus,

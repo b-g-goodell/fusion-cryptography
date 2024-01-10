@@ -132,7 +132,7 @@ def check_modulus_halfmod_logmod(modulus: int, halfmod: int, logmod: int):
         raise ValueError(f"Logmod must be >=1, had {logmod}")
     elif 2**(logmod-1) >= modulus or modulus > 2**logmod:
         raise ValueError(f"Logmod must bound the modulus, had 2**(logmod-1)={2**(logmod-1)}, 2**logmod={2**logmod},"
-                         + " and modulus={modulus}")
+                         + f" and modulus={modulus}")
     pass
 
 
