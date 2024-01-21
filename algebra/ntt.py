@@ -3,6 +3,7 @@ The ntt module handles the Number Theoretic Transform (NTT) and its inverse in c
 """
 from math import ceil
 from typing import Dict, Tuple, List, Union
+from copy import deepcopy
 
 CACHED_PRIMITIVE_ROOTS: Dict[Tuple[int, int], int] = {}
 CACHED_IS_ODD_PRIME: Dict[int, bool] = {}
@@ -374,18 +375,34 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
     brv_root_powers: List[int] = bit_reverse_copy(val=root_powers)
     inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(degree)]
     brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
-    cooley_tukey_ntt(val=f, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
+    fhat = cooley_tukey_ntt(val=deepcopy(f), modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
                      halfmod=halfmod, logmod=logmod)
-    cooley_tukey_ntt(val=g, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
+    ghat = cooley_tukey_ntt(val=deepcopy(g), modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
                      halfmod=halfmod, logmod=logmod)
-    fg: List[int] = [
+    fghat: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
-        for x, y in zip(f, g)
+        for x, y in zip(fhat, ghat)
     ]
-    gentleman_sande_intt(val=fg, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
+    return gentleman_sande_intt(val=fghat, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
                          halfmod=halfmod, logmod=logmod)
-    gentleman_sande_intt(val=f, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
-                         halfmod=halfmod, logmod=logmod)
-    gentleman_sande_intt(val=g, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
-                         halfmod=halfmod, logmod=logmod)
-    return fg
+
+
+def derived_params(val: List[int], modulus: int, inv_flag: bool) -> Tuple[int, int, int, int, int, List[int]]:
+    """ Derive root order from list length, derive root or inv_root from modulus and root order and inv_flag,
+    compute root powers, then bit reverse."""
+    if not isinstance(val, list) or not all(isinstance(x, int) for x in val) or not isinstance(modulus, int):
+        raise TypeError(f"Input must be lists of integers and integer.")
+    elif not is_odd_prime(val=modulus):
+        raise ValueError(f"Modulus must be an odd prime")
+    elif not has_primitive_root_of_unity(modulus=modulus, root_order=2*len(val)):
+        raise ValueError(f"Modulus does not have primitive root of unity of correct order")
+    degree: int = len(val)
+    root_order: int = 2*degree
+    halfmod: int = modulus//2
+    logmod: int = modulus.bit_length()
+    root: int = find_primitive_root(modulus=modulus, root_order=root_order)
+    if inv_flag:
+        root = pow(base=root, exp=modulus - 2, mod=modulus)
+    powers: List[int] = [pow(base=root, exp=i, mod=modulus) for i in range(degree)]
+    brv_powers: List[int] = bit_reverse_copy(powers)
+    return halfmod, logmod, degree, root_order, root, brv_powers,
