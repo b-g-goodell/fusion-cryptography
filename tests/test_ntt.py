@@ -15,18 +15,18 @@ from algebra.ntt import (
     _cooley_tukey_ntt,
     _gentleman_sande_intt,
     _ntt_poly_mult,
-    ERR_MUST_BE_INT,
-    ERR_MUST_BE_LIST,
-    ERR_MUST_BE_BOOL,
-    ERR_MUST_BE_POW_TWO,
-    ERR_MUST_BE_GEQ_THREE,
-    ERR_MUST_BE_STRICTLY_POSITIVE,
-    ERR_MUST_BE_FLOOR_HALF,
-    ERR_MUST_BE_BIT_LENGTH,
-    ERR_MUST_HAVE_PRIM_ROU,
-    ERR_MUST_BE_ODD_PRIME,
-    ERR_MUST_BE_CORRECT_ROOT,
-    ERR_MUST_BE_SAME_LENGTH,
+    _ERR_MUST_BE_INT,
+    _ERR_MUST_BE_LIST,
+    _ERR_MUST_BE_BOOL,
+    _ERR_MUST_BE_POW_TWO,
+    _ERR_MUST_BE_GEQ_THREE,
+    _ERR_MUST_BE_STRICTLY_POSITIVE,
+    _ERR_MUST_BE_FLOOR_HALF,
+    _ERR_MUST_BE_BIT_LENGTH,
+    _ERR_MUST_HAVE_PRIM_ROU,
+    _ERR_MUST_BE_ODD_PRIME,
+    _ERR_MUST_BE_CORRECT_ROOT,
+    _ERR_MUST_BE_SAME_LENGTH,
 )
 from copy import deepcopy
 
@@ -84,14 +84,14 @@ CHECK_MODULUS_HALFMOD_LOGMOD_TEST_DATA = [
     for x in range(3, 100)
 ]
 CHECK_MODULUS_HALFMOD_LOGMOD_ERRORS = [
-    ("not an int", 3, 3, TypeError, ERR_MUST_BE_INT),
-    (6, "not an int", 3, TypeError, ERR_MUST_BE_INT),
-    (6, 3, "not an int", TypeError, ERR_MUST_BE_INT),
-    (2, 1, 2, ValueError, ERR_MUST_BE_GEQ_THREE),
-    (3, 0, 2, ValueError, ERR_MUST_BE_STRICTLY_POSITIVE),
-    (3, 2, 2, ValueError, ERR_MUST_BE_FLOOR_HALF),
-    (6, 2, 0, ValueError, ERR_MUST_BE_STRICTLY_POSITIVE),
-    (6, 3, 2, ValueError, ERR_MUST_BE_BIT_LENGTH)  # adjust the error message to match the actual output
+    ("not an int", 3, 3, TypeError, _ERR_MUST_BE_INT),
+    (6, "not an int", 3, TypeError, _ERR_MUST_BE_INT),
+    (6, 3, "not an int", TypeError, _ERR_MUST_BE_INT),
+    (2, 1, 2, ValueError, _ERR_MUST_BE_GEQ_THREE),
+    (3, 0, 2, ValueError, _ERR_MUST_BE_STRICTLY_POSITIVE),
+    (3, 2, 2, ValueError, _ERR_MUST_BE_FLOOR_HALF),
+    (6, 2, 0, ValueError, _ERR_MUST_BE_STRICTLY_POSITIVE),
+    (6, 3, 2, ValueError, _ERR_MUST_BE_BIT_LENGTH)  # adjust the error message to match the actual output
     # The above line has been wrapped for readability, but should be a single line in the code.
 ]
 CENT_TEST_DATA = [
@@ -150,23 +150,23 @@ CHECK_NTT_AND_INTT_VALID_DATA = [
     for t in CHECK_NTT_AND_INTT_VALID_DATA
 ]
 CHECK_NTT_AND_INTT_ERRORS = [
-    ("not a list of ints", 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, ERR_MUST_BE_LIST),
-    (list("not a list of ints"), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, ERR_MUST_BE_INT),
-    (list(range(8)), "not an int", 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, ERR_MUST_BE_INT),
-    (list(range(8)), 17, "not an int", False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, ERR_MUST_BE_INT),
-    (list(range(8)), 17, 16, "not a bool", _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, ERR_MUST_BE_BOOL),
-    (list(range(8)), 17, 16, False, "not a list of ints", 8, 5, TypeError, ERR_MUST_BE_LIST),
-    (list(range(8)), 17, 16, False, list("not a list of ints"), 8, 5, TypeError, ERR_MUST_BE_INT),
-    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), "not an int", 5, TypeError, ERR_MUST_BE_INT),
-    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, "not an int", TypeError, ERR_MUST_BE_INT),
-    (list(range(8)), 18, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, ERR_MUST_BE_ODD_PRIME),
-    (list(range(16)), 17, 32, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(16)]), 8, 5, ValueError, ERR_MUST_HAVE_PRIM_ROU),
-    (list(range(15)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, ERR_MUST_BE_POW_TWO),
-    (list(range(8)), 17, 8, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=8), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, ERR_MUST_BE_FLOOR_HALF),
-    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 7, 5, ValueError, ERR_MUST_BE_FLOOR_HALF),
-    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 4, ValueError, ERR_MUST_BE_BIT_LENGTH),
-    (list(range(8)), 17, 16, False, _bit_reverse_copy([1 + pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, ERR_MUST_BE_CORRECT_ROOT),
-    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=pow(base=_find_primitive_root(modulus=17, root_order=16), exp=15, mod=17), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, ERR_MUST_BE_CORRECT_ROOT),
+    ("not a list of ints", 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, _ERR_MUST_BE_LIST),
+    (list("not a list of ints"), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, _ERR_MUST_BE_INT),
+    (list(range(8)), "not an int", 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, _ERR_MUST_BE_INT),
+    (list(range(8)), 17, "not an int", False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, _ERR_MUST_BE_INT),
+    (list(range(8)), 17, 16, "not a bool", _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, TypeError, _ERR_MUST_BE_BOOL),
+    (list(range(8)), 17, 16, False, "not a list of ints", 8, 5, TypeError, _ERR_MUST_BE_LIST),
+    (list(range(8)), 17, 16, False, list("not a list of ints"), 8, 5, TypeError, _ERR_MUST_BE_INT),
+    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), "not an int", 5, TypeError, _ERR_MUST_BE_INT),
+    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, "not an int", TypeError, _ERR_MUST_BE_INT),
+    (list(range(8)), 18, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, _ERR_MUST_BE_ODD_PRIME),
+    (list(range(16)), 17, 32, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(16)]), 8, 5, ValueError, _ERR_MUST_HAVE_PRIM_ROU),
+    (list(range(15)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, _ERR_MUST_BE_POW_TWO),
+    (list(range(8)), 17, 8, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=8), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, _ERR_MUST_BE_FLOOR_HALF),
+    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 7, 5, ValueError, _ERR_MUST_BE_FLOOR_HALF),
+    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 4, ValueError, _ERR_MUST_BE_BIT_LENGTH),
+    (list(range(8)), 17, 16, False, _bit_reverse_copy([1 + pow(base=_find_primitive_root(modulus=17, root_order=16), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, _ERR_MUST_BE_CORRECT_ROOT),
+    (list(range(8)), 17, 16, False, _bit_reverse_copy([pow(base=pow(base=_find_primitive_root(modulus=17, root_order=16), exp=15, mod=17), exp=i, mod=17) for i in range(8)]), 8, 5, ValueError, _ERR_MUST_BE_CORRECT_ROOT),
 ]
 TEST_CASES_Q17D8 = [
     (17, 8, 17//2, (17).bit_length())  # 0 modulus, 1 degree, 2 halfmod, 3 logmod
