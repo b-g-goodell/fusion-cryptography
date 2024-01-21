@@ -93,7 +93,7 @@ def check_modulus_halfmod_logmod(modulus: int, halfmod: int, logmod: int):
         raise ValueError(f"Halfmod must be half modulus, but had halfmod={halfmod} and modulus={modulus}")
     elif logmod < 1:
         raise ValueError(f"Logmod must be >=1, had {logmod}")
-    elif 2**(logmod-1) >= modulus or modulus > 2**logmod:
+    elif 2**(logmod-1) > modulus or modulus >= 2**logmod:
         raise ValueError(f"Logmod must bound the modulus, had 2**(logmod-1)={2**(logmod-1)}, 2**logmod={2**logmod},"
                          + f" and modulus={modulus}")
     pass
@@ -199,14 +199,14 @@ def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers
         raise TypeError("modulus must be an integer")
     elif not isinstance(root_order, int):
         raise TypeError("root_order must be an integer")
+    elif not isinstance(inv_flag, bool):
+        raise TypeError("inv_flag must be a boolean")
     elif not isinstance(brv_powers, list) or not all(isinstance(x, int) for x in brv_powers):
         raise TypeError("brv_powers must be a list of integers")
-    elif not isinstance(inv_flag, bool):
-        raise TypeError("inv_flag must be an boolean")
     elif not isinstance(halfmod, int):
         raise TypeError("halfmod must be an integer")
     elif not isinstance(logmod, int):
-        raise TypeError("logmod must be a integer")
+        raise TypeError("logmod must be an integer")
     elif not is_odd_prime(val=modulus):
         raise ValueError(f"modulus={modulus} must be an odd prime")
     elif not has_primitive_root_of_unity(modulus=modulus, root_order=root_order):
@@ -221,19 +221,14 @@ def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers
         )
     elif halfmod != modulus//2:
         raise ValueError(f"halfmod must be half the modulus")
-    elif 2**(logmod-1) >= modulus or 2**logmod < modulus:
+    elif 2**(logmod-1) > modulus or modulus >= 2**logmod:
         raise ValueError(f"logmod does not properly capture bit length of modulus")
-    elif (not inv_flag
-          and find_primitive_root(modulus=modulus, root_order=root_order) != bit_reverse_copy(brv_powers)[1]):
+    elif not inv_flag and find_primitive_root(modulus=modulus, root_order=root_order) != bit_reverse_copy(brv_powers)[1]:
         fpr = find_primitive_root(modulus=modulus, root_order=root_order)
         raise ValueError(
             f"Need root(={fpr}) to == brv_power = {bit_reverse_copy(brv_powers)[1]} to compute forward NTT"
         )
-    elif (pow(
-            find_primitive_root(modulus=modulus, root_order=root_order),
-            modulus - 2,
-            modulus)
-          != bit_reverse_copy(brv_powers)[1] and inv_flag):
+    elif inv_flag and pow(base=find_primitive_root(modulus=modulus, root_order=root_order), exp=modulus - 2, mod=modulus) != bit_reverse_copy(brv_powers)[1]:
         raise ValueError(
             f"Need inv_root={pow(find_primitive_root(modulus=modulus, root_order=root_order), modulus - 2, modulus)}"
             + f" == {bit_reverse_copy(brv_powers)[1]} for INTT to be valid"
@@ -387,16 +382,19 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
                          halfmod=halfmod, logmod=logmod)
 
 
-def derived_params(val: List[int], modulus: int, inv_flag: bool) -> Tuple[int, int, int, int, int, List[int]]:
+def derived_params(degree: int, modulus: int, inv_flag: bool) -> Tuple[int, int, int, int, int, List[int]]:
     """ Derive root order from list length, derive root or inv_root from modulus and root order and inv_flag,
     compute root powers, then bit reverse."""
-    if not isinstance(val, list) or not all(isinstance(x, int) for x in val) or not isinstance(modulus, int):
-        raise TypeError(f"Input must be lists of integers and integer.")
+    if not isinstance(degree, int):
+        raise TypeError(f"input degree must be an integer")
+    elif not isinstance(modulus, int):
+        raise TypeError(f"input modulus must be an integer")
+    elif not isinstance(inv_flag, bool):
+        raise TypeError(f"input inv_flag must be a boolean")
     elif not is_odd_prime(val=modulus):
         raise ValueError(f"Modulus must be an odd prime")
-    elif not has_primitive_root_of_unity(modulus=modulus, root_order=2*len(val)):
+    elif not has_primitive_root_of_unity(modulus=modulus, root_order=2*degree):
         raise ValueError(f"Modulus does not have primitive root of unity of correct order")
-    degree: int = len(val)
     root_order: int = 2*degree
     halfmod: int = modulus//2
     logmod: int = modulus.bit_length()
