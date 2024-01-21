@@ -16,45 +16,31 @@ def sample_polynomial_coefficient_representation(modulus: int, degree: int, root
         for i in range(degree - 1, 0, -1):
             j = randbelow(i + 1)
             coefficients[i], coefficients[j] = coefficients[j], coefficients[i]
-    return PolynomialCoefficientRepresentation(
-        modulus=modulus,
-        degree=degree,
-        root=root,
-        inv_root=inv_root,
-        root_order=root_order,
-        coefficients=coefficients,
-    )
+    return PolynomialCoefficientRepresentation(modulus=modulus, representation=coefficients)
 
 
 def sample_polynomial_ntt_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int) -> PolynomialNTTRepresentation:
     values: List[int] = [randbelow(modulus) - (modulus // 2) for _ in range(degree)]
-    return PolynomialNTTRepresentation(
-        modulus=modulus,
-        degree=degree,
-        root=root,
-        inv_root=inv_root,
-        root_order=root_order,
-        values=values,
+    return PolynomialNTTRepresentation(modulus=modulus, representation=values)
+
+
+def sample_coefficient_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
+                              num_cols: int, norm_bound: int, weight_bound: int) -> GeneralMatrix:
+    return GeneralMatrix(
+        matrix=[
+            [
+                sample_polynomial_coefficient_representation(modulus=modulus, degree=degree, root=root,
+                                                             inv_root=inv_root, root_order=root_order,
+                                                             norm_bound=norm_bound, weight_bound=weight_bound)
+                for j in range(num_cols)
+            ]
+            for i in range(num_rows)
+        ]
     )
 
 
-# def sample_coefficient_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
-#                               num_cols: int, norm_bound: int, weight_bound: int) -> GeneralMatrix:
-#     return GeneralMatrix(
-#         matrix=[
-#             [
-#                 sample_polynomial_coefficient_representation(modulus=modulus, degree=degree, root=root,
-#                                                              inv_root=inv_root, root_order=root_order,
-#                                                              norm_bound=norm_bound, weight_bound=weight_bound)
-#                 for j in range(num_cols)
-#             ]
-#             for i in range(num_rows)
-#         ]
-#     )
-#
-#
-# def sample_ntt_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
-#                       num_cols: int) -> GeneralMatrix:
-#     matrix: List[List[PolynomialNTTRepresentation]] = [[sample_polynomial_ntt_representation(modulus=modulus, degree=degree, root=root, inv_root=inv_root, root_order=root_order) for j in range(num_cols)] for i in range(num_rows)]
-#     return GeneralMatrix(matrix=matrix)
-#
+def sample_ntt_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,
+                      num_cols: int) -> GeneralMatrix:
+    matrix: List[List[PolynomialNTTRepresentation]] = [[sample_polynomial_ntt_representation(modulus=modulus, degree=degree, root=root, inv_root=inv_root, root_order=root_order) for j in range(num_cols)] for i in range(num_rows)]
+    return GeneralMatrix(matrix=matrix)
+

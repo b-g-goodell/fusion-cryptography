@@ -1,43 +1,5 @@
 """
 The ntt module handles the Number Theoretic Transform (NTT) and its inverse in constant time.
-
-Example usage:
-    from ntt import find_primitive_root, bit_reverse_copy
-
-    # Example parameters
-    modulus = 17
-    degree = 8  # we can infer this from the length of the input vector later!
-    root_order = 2*degree
-
-    # Precompute root and inv_root powers
-    root = find_primitive_root(modulus=modulus, root_order=root_order)
-    root_powers = [pow(base=root, exp=i, mod=modulus) for i in range(root_order)]
-    brv_root_powers = bit_reverse_copy(val=root_powers)
-    inv_root = pow(base=root, exp=modulus-2, mod=modulus)
-    inv_root_powers = [pow(base=inv_root, exp=i, mod=modulus) for i in range(root_order)]
-    brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
-
-    # Let's compute some NTTs!
-    # Start with the multiplicative identity, the 1-polynomial
-    one_poly = [1, 0, 0, 0, 0, 0, 0, 0]
-    expected_one_poly_hat = [1, 1, 1, 1, 1, 1, 1, 1]  # manually computed
-    observed_one_poly_hat = cooley_tukey_ntt(val=one_poly, modulus=modulus, root_order=root_order,
-                                            bit_rev_root_powers=brv_root_powers)
-    assert expected_one_poly_hat == observed_one_poly_hat
-
-    # Next let's do the first monomial, the X-polynomial.
-    x_poly = [0, 1, 0, 0, 0, 0, 0, 0]
-    expected_x_poly_hat = [-8, 8, 8, -8, -2, 2, 2, -2]  # manually computed
-    observed_x_poly_hat = cooley_tukey_ntt(val=x_poly, modulus=modulus, root_order=root_order,
-                                           bit_rev_root_powers=brv_root_powers)
-    assert expected_x_poly_hat == observed_x_poly_hat
-
-    # Let's compute some inverse NTTs!
-    # Let's check that we get back to the 1-polynomial from observed_one_poly_hat
-    observed_one_poly_hat_hat = gentleman_sande(val=observed_one_poly_hat, modulus=modulus, root_order=root_order,
-                                                bit_rev_inv_root_powers=brv_inv_root_powers)
-    assert all((x-y) % modulus == 0 for x, y in zip(one_poly, one_poly_hat_hat))
-
 """
 from math import ceil
 from typing import Dict, Tuple, List, Union
@@ -229,7 +191,7 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
 
 
 def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers: List[int], inv_flag: bool,
-                       halfmod: int, logmod: int, root: int, inv_root: int):
+                       halfmod: int, logmod: int):
     if not isinstance(val, list) or not all(isinstance(x, int) for x in val):
         raise TypeError("input val must be a list of integers")
     elif not isinstance(modulus, int):
@@ -279,7 +241,7 @@ def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers
 
 
 def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root_powers: List[int], halfmod: int,
-                     logmod: int, root) -> List[int]:
+                     logmod: int) -> List[int]:
     """
     Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*n, and a list of integers, root_powers, which are powers of a primitive
@@ -305,13 +267,13 @@ def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root
     :rtype: List[int]
     """
     check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_root_powers, inv_flag=False,
-                       halfmod=halfmod, logmod=logmod, root=root, inv_root=pow(base=root, exp=modulus - 2, mod=modulus))
+                       halfmod=halfmod, logmod=logmod)
     u: int
     v: int
     n: int = len(val)
     t: int = n
     m: int = 1
-    while m < len(val):
+    while m < n:
         t //= 2
         for i in range(m):
             j_one: int = 2 * i * t
@@ -326,9 +288,9 @@ def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root
 
 
 def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_inv_root_powers: List[int],
-                         halfmod: int, logmod: int, inv_root) -> List[int]:
+                         halfmod: int, logmod: int) -> List[int]:
     """
-    Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
+    Input val, a list of n := len(val) integers in bit-reversed ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*n, and a list of integers, inv_root_powers, which are powers of the
     inverse of the primitive root of unity with order root_order used to compute the forward transform in bit-reversed
     order.  Output the INTT of val in standard order.
@@ -353,8 +315,7 @@ def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_
     :rtype: List[int]
     """
     check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_inv_root_powers,
-                       inv_flag=True, halfmod=halfmod, logmod=logmod,
-                       root=pow(base=inv_root, exp=modulus - 2, mod=modulus), inv_root=inv_root)
+                       inv_flag=True, halfmod=halfmod, logmod=logmod)
     u: int
     v: int
     n: int = len(val)
@@ -373,7 +334,7 @@ def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_
                 val[j + t] = cent(val=(u - v) * s, modulus=modulus, halfmod=halfmod, logmod=logmod)
             j_one += 2 * t
         t *= 2
-        m = h
+        m = m // 2
     for j in range(n):
         val[j] = cent(val=val[j] * n_inv, modulus=modulus, halfmod=halfmod, logmod=logmod)
     return val
@@ -386,7 +347,8 @@ def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, h
 
     # Check for both f and g using check_ntt_and_intt
     for val in [f, g]:
-        check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=brv_root_powers, inv_flag=False, halfmod=halfmod, logmod=logmod, root=root, inv_root=inv_root)
+        check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=brv_root_powers, inv_flag=False,
+                           halfmod=halfmod, logmod=logmod)
 
     # Perform unique checks for ntt_poly_mult function
     if not isinstance(root, int) or not isinstance(inv_root, int):
@@ -413,17 +375,17 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
     inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(degree)]
     brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
     cooley_tukey_ntt(val=f, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
-                     halfmod=halfmod, logmod=logmod, root=0)
+                     halfmod=halfmod, logmod=logmod)
     cooley_tukey_ntt(val=g, modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
-                     halfmod=halfmod, logmod=logmod, root=0)
+                     halfmod=halfmod, logmod=logmod)
     fg: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
         for x, y in zip(f, g)
     ]
     gentleman_sande_intt(val=fg, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
-                         halfmod=halfmod, logmod=logmod, inv_root=0)
+                         halfmod=halfmod, logmod=logmod)
     gentleman_sande_intt(val=f, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
-                         halfmod=halfmod, logmod=logmod, inv_root=0)
+                         halfmod=halfmod, logmod=logmod)
     gentleman_sande_intt(val=g, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
-                         halfmod=halfmod, logmod=logmod, inv_root=0)
+                         halfmod=halfmod, logmod=logmod)
     return fg

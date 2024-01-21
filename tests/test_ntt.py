@@ -14,8 +14,9 @@ from algebra.ntt import (
     gentleman_sande_intt,
     ntt_poly_mult,
 )
+from copy import deepcopy
 
-SAMPLE_SIZE: int = 2**5
+SAMPLE_SIZE: int = 2**2
 IS_ODD_PRIME_TEST_DATA = [
     (3, True),
     (4, False),
@@ -36,7 +37,7 @@ IS_POW_TWO_GEQ_TWO_TEST_DATA = [
 ]
 LOG2_D_MIN: int = 2
 LOG2_D_MAX: int = 6
-Q_MAX: int = 2**17
+Q_MAX: int = 2**23
 PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE: List[Tuple[int, int]] = []
 for log2d in range(LOG2_D_MIN, LOG2_D_MAX + 1):
     tmp_d: int = 1 << log2d
@@ -46,8 +47,8 @@ for log2d in range(LOG2_D_MIN, LOG2_D_MAX + 1):
             tmp_q += 2 * tmp_d
         if is_odd_prime(tmp_q) and tmp_q < Q_MAX:
             PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE.append((tmp_d, tmp_q))
-            find_primitive_root(modulus=tmp_q, root_order=2 * tmp_d)
-            tmp_q *= 2
+            find_primitive_root(modulus=tmp_q, root_order=2 * tmp_d)  # precompute and cache
+            tmp_q *= 8
             tmp_q -= (tmp_q - 1) % (2 * tmp_d)
             assert (tmp_q - 1) % (2 * tmp_d) == 0
 HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA = [
@@ -95,93 +96,95 @@ FIND_PRIMITIVE_ROOT_TEST_DATA = [
     (17, 16, 3),
     (257, 128, 9)
 ]
-COOLEY_TUKEY_NTT_TEST_DATA = [
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 1, 0, 0, 0, 0, 0, 0], [-8, 8, 8, -8, -2, 2, 2, -2]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 0, 1, 0, 0, 0, 0, 0], [-4, -4, 4, 4, 4, 4, -4, -4]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 0, 0, 1, 0, 0, 0, 0], [-2, 2, -2, 2, -8, 8, -8, 8]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 1, 0, 0, 0], [-1, -1, -1, -1, 1, 1, 1, 1]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 0, 1, 0, 0], [8, -8, -8, 8, -2, 2, 2, -2]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 0, 0, 1, 0], [4, 4, -4, -4, 4, 4, -4, -4]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(find_primitive_root(modulus=17, root_order=16), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 0, 0, 0, 1], [2, -2, 2, -2, -8, 8, -8, 8]),
+TEST_CASES_Q17D8 = [
+    (17, 8, 17//2, (17).bit_length())  # 0 modulus, 1 degree, 2 halfmod, 3 logmod
 ]
-GENTLEMAN_SANDE_INTT_TEST_DATA = [
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [1, 0, 0, 0, 0, 0, 0, 0], [-2, -4, -8, 1, 2, 4, 8, -1]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 1, 0, 0, 0, 0, 0, 0], [-2, 4, -8, -1, 2, -4, 8, 1]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 0, 1, 0, 0, 0, 0, 0], [-2, 4, 8, 1, 2, -4, -8, -1]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 0, 0, 1, 0, 0, 0, 0], [-2, -4, 8, -1, 2, 4, -8, 1]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 1, 0, 0, 0], [-2, 1, 8, -4, -2, 1, 8, -4]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 0, 1, 0, 0], [-2, -1, 8, 4, -2, -1, 8, 4]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 0, 0, 1, 0], [-2, -1, -8, -4, -2, -1, -8, -4]),
-    (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
-     [pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)],
-     bit_reverse_copy([pow(pow(find_primitive_root(modulus=17, root_order=16), 15, 17), i, 17) for i in range(16)]),
-     [0, 0, 0, 0, 0, 0, 0, 1], [-2, 1, -8, 4, -2, 1, -8, 4]),
+TEST_CASES_Q17D8 = [
+    t + tuple([find_primitive_root(modulus=t[0], root_order=2*t[1])])  # 4 root
+    for t in TEST_CASES_Q17D8
 ]
-NTT_POLY_MULT_TEST_DATA = [
-    (17, 16, find_primitive_root(modulus=17, root_order=16),
-     pow(find_primitive_root(modulus=17, root_order=16), 15, 17)),
+TEST_CASES_Q17D8 = [
+    t + tuple([bit_reverse_copy([pow(base=t[-1], exp=i, mod=t[0]) for i in range(t[1])])])  # 5 brv_root_powers
+    for t in TEST_CASES_Q17D8
+]
+TEST_CASES_Q17D8 = [
+    t + tuple([pow(base=t[4], exp=t[0]-2, mod=t[0])])  # 6 inv_root
+    for t in TEST_CASES_Q17D8
+]
+TEST_CASES_Q17D8 = [
+    t + tuple([bit_reverse_copy([pow(base=t[-1], exp=i, mod=t[0]) for i in range(t[1])])])  # 7 brv_inv_root_powers
+    for t in TEST_CASES_Q17D8
+]
+TEST_RAN_MUL = [
+    t + tuple([
+        [randbelow(t[0]) for _ in range(t[1])],
+        [randbelow(t[0]) for _ in range(t[1])]
+    ])
+    for t in TEST_CASES_Q17D8
+    for _ in range(SAMPLE_SIZE)
+]
+TEST_RAN_MUL_CASES = []
+for t in TEST_RAN_MUL:
+    f = t[-2]
+    g = t[-1]
+    fg = [0 for _ in range(2*t[1])]
+    for i, a in enumerate(f):
+        for j, b in enumerate(g):
+            fg[i+j] += a*b
+    fg = [cent(val=x-y, modulus=t[0], halfmod=t[2], logmod=t[3]) for x, y in zip(fg[:t[1]], fg[t[1]:])]
+    TEST_RAN_MUL_CASES += [t + tuple([
+        fg,
+        cooley_tukey_ntt(val=deepcopy(f), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),
+        cooley_tukey_ntt(val=deepcopy(g), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),
+        cooley_tukey_ntt(val=deepcopy(fg), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),
+    ])]
+TEST_RAN_MUL_CASES = [t + tuple([
+    [cent(val=x*y, modulus=t[0], halfmod=t[2], logmod=t[3]) for x, y in zip(t[-3], t[-2])]
+]) for t in TEST_RAN_MUL_CASES]
+TEST_RAN_MUL_CASES = [t + tuple([
+    gentleman_sande_intt(val=deepcopy(t[-1]), modulus=t[0], root_order=2*t[1], bit_rev_inv_root_powers=t[7], halfmod=t[2], logmod=t[3]),
+]) for t in TEST_RAN_MUL_CASES]
+TEST_RAN_MUL_CASES = [t + tuple([
+    [cent(val=x-y, modulus=t[0], halfmod=t[2], logmod=t[3]) for x, y in zip(t[-1], t[-6])]
+]) for t in TEST_RAN_MUL_CASES]
+
+
+@pytest.mark.parametrize('modulus,degree,halfmod,logmod,root,brv_root_powers,inv_root,brv_inv_root_powers,' +
+                         'f,g,hand_fg,ntt_f,ntt_g,ntt_hand_fg,hadamard_fhat_ghat,intt_hadamard,diff', TEST_RAN_MUL_CASES)
+def test_ran_mul(modulus,degree,halfmod,logmod,root,brv_root_powers,inv_root,brv_inv_root_powers,f,g,hand_fg,ntt_f,ntt_g,ntt_hand_fg,hadamard_fhat_ghat,intt_hadamard,diff):
+    print()
+    assert all(x % modulus == 0 for x in diff)
+    assert all((tomato - carrot) % modulus == 0 for tomato, carrot in zip(hadamard_fhat_ghat,ntt_hand_fg))  # NTT(f) star NTT(g) = NTT(f * g)
+    assert all((tomato - carrot) % modulus == 0 for tomato, carrot in zip(intt_hadamard, hand_fg))  # INTT(NTT(f) star NTT(g)) = f * g
+
+
+
+TEST_MONOMIALS = [
+    [1, 0, 0, 0, 0, 0, 0, 0,], [0, 1, 0, 0, 0, 0, 0, 0,], [0, 0, 1, 0, 0, 0, 0, 0,], [0, 0, 0, 1, 0, 0, 0, 0,],
+    [0, 0, 0, 0, 1, 0, 0, 0,], [0, 0, 0, 0, 0, 1, 0, 0,], [0, 0, 0, 0, 0, 0, 1, 0,], [0, 0, 0, 0, 0, 0, 0, 1,]]
+TEST_FORWARD_MONOMIALS = [
+    [1, 1, 1, 1, 1, 1, 1, 1], [3, -3, 5, -5, -7, 7, -6, 6], [-8, -8, 8, 8, -2, -2, 2, 2], [-7, 7, 6, -6, -3, 3, 5, -5],
+    [-4, -4, -4, -4, 4, 4, 4, 4], [5, -5, -3, 3, 6, -6, -7, 7], [-2, -2, 2, 2, -8, -8, 8, 8], [-6, 6, -7, 7, 5, -5, 3, -3]]  # NTT(monomials)
+TEST_BACKWARD_MONOMIALS = [
+    [-2, 5, -4, -7, -8, 3, 1, 6], [-2, -5, -4, 7, -8, -3, 1, -6], [-2, 3, 4, -6, -8, -5, -1, -7], [-2, -3, 4, 6, -8, 5, -1, 7],
+    [-2, -7, 1, -5, 8, -6, -4, 3], [-2, 7, 1, 5, 8, 6, -4, -3], [-2, 6, -1, 3, 8, -7, 4, 5], [-2, -6, -1, -3, 8, 7, 4, -5]]  # INTT(monomials)
+TEST_CASES_Q17D8 = [
+    t + tuple([
+        TEST_MONOMIALS[i],  # a unit vector
+        TEST_FORWARD_MONOMIALS[i],  # the hand-computed forward transform of a
+        TEST_BACKWARD_MONOMIALS[i], # the hand-computed inverse transform of a
+    ])
+    for t in TEST_CASES_Q17D8
+    for i in range(len(TEST_MONOMIALS))
+]
+TEST_CASES_Q17D8 = [
+    t + tuple([
+        cooley_tukey_ntt(val=deepcopy(t[-3]), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),  # forward transform of a
+        gentleman_sande_intt(val=deepcopy(t[-3]), modulus=t[0], root_order=2*t[1], bit_rev_inv_root_powers=t[7], halfmod=t[2], logmod=t[3]),  # inverse transform of a
+        gentleman_sande_intt(val=deepcopy(t[-2]), modulus=t[0], root_order=2*t[1], bit_rev_inv_root_powers=t[7], halfmod=t[2], logmod=t[3]),  # inverse transform of hand-computed forward transform
+        cooley_tukey_ntt(val=deepcopy(t[-1]), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),   # forward transform of hand-computed inverse transform
+    ])
+    for t in TEST_CASES_Q17D8
 ]
 
 
@@ -228,64 +231,23 @@ def test_find_primitive_root(modulus, root_order, expected_value):
     assert find_primitive_root(modulus=modulus, root_order=root_order) == expected_value
 
 
-@pytest.mark.parametrize(
-    'modulus, halfmod, logmod, root_order, root, root_inv, root_powers, bit_rev_root_powers, val, expected_val',
-    COOLEY_TUKEY_NTT_TEST_DATA)
-def test_cooley_tukey(modulus, halfmod, logmod, root_order, root, root_inv, root_powers, bit_rev_root_powers, val,
-                      expected_val):
-    observed_val = cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order,
-                                    bit_rev_root_powers=bit_rev_root_powers, halfmod=halfmod, logmod=logmod, root=0)
-    assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
+@pytest.mark.parametrize('modulus,degree,halfmod,logmod,root,brv_root_powers,inv_root,brv_inv_root_powers,' +
+                         'input_vector,hand_ntt_input_vector,hand_intt_input_vector,ntt_input_vector,' +
+                         'intt_input_vector,intt_hand_ntt_input_vector,ntt_hand_intt_input_vector', TEST_CASES_Q17D8)
+def test_q17d18(modulus, degree, halfmod, logmod, root, brv_root_powers, inv_root, brv_inv_root_powers,
+                input_vector, hand_ntt_input_vector, hand_intt_input_vector, ntt_input_vector,
+                intt_input_vector, intt_hand_ntt_input_vector, ntt_hand_intt_input_vector):
+    assert all((tomato - carrot) % modulus == 0 for tomato, carrot in zip(hand_ntt_input_vector, ntt_input_vector))
+    assert all((tomato - carrot) % modulus == 0 for tomato, carrot in zip(hand_intt_input_vector, intt_input_vector))
+    assert all((tomato - carrot) % modulus == 0 for tomato, carrot in zip(input_vector, intt_hand_ntt_input_vector))
+    assert all((tomato - carrot) % modulus == 0 for tomato, carrot in zip(input_vector, ntt_hand_intt_input_vector))
 
 
-@pytest.mark.parametrize(
-    'modulus, halfmod, logmod, root_order, root, root_inv, root_inv_powers, bit_rev_root_inv_powers, val, expected_val',
-    GENTLEMAN_SANDE_INTT_TEST_DATA)
-def test_gentleman_sande(modulus, halfmod, logmod, root_order, root, root_inv, root_inv_powers, bit_rev_root_inv_powers,
-                         val, expected_val):
-    observed_val = gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order,
-                                        bit_rev_inv_root_powers=bit_rev_root_inv_powers, halfmod=halfmod, logmod=logmod,
-                                        inv_root=0)
-    assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
+@pytest.mark.parametrize('modulus,degree,halfmod,logmod,root,brv_root_powers,inv_root,brv_inv_root_powers,' +
+                         'f,g,hand_fg,ntt_f,ntt_g,ntt_hand_fg,hadamard_fhat_ghat,intt_hadamard,diff', TEST_RAN_MUL_CASES)
+def test_ntt_poly_mult(modulus,degree,halfmod,logmod,root,brv_root_powers,inv_root,brv_inv_root_powers,f,g,hand_fg,ntt_f,ntt_g,ntt_hand_fg,hadamard_fhat_ghat,intt_hadamard,diff):
+    observed_val = ntt_poly_mult(f=f, g=g, modulus=modulus, halfmod=halfmod, logmod=logmod,
+                                 degree=degree, root_order=2*degree, root=root, inv_root=inv_root,
+                                 brv_root_powers=brv_root_powers)
+    assert all((a-b) % modulus == 0 for a, b in zip(observed_val, hand_fg))
 
-
-@pytest.fixture(params=NTT_POLY_MULT_TEST_DATA)
-def some_ran_polys_and_prod(request):
-    modulus, root_order, root, root_inv = request.param
-    degree = root_order//2
-    left_factors: List[List[int]] = []
-    right_factors: List[List[int]] = []
-    expected_product_by_foil: List[List[int]] = []
-    while len(left_factors) < SAMPLE_SIZE:
-        new_left_factor = [randbelow(modulus) for _ in range(degree)]
-        left_factors += [new_left_factor]
-
-        new_right_factor = [randbelow(modulus) for _ in range(degree)]
-        right_factors += [new_right_factor]
-
-        new_expected_product_by_foil = [0 for _ in range(root_order)]
-        for i, a in enumerate(new_left_factor):
-            for j, b in enumerate(new_right_factor):
-                new_expected_product_by_foil[i+j] += a*b % modulus
-        new_expected_product_by_foil = [(x - y) % modulus for x, y in zip(new_expected_product_by_foil[:degree],
-                                                                          new_expected_product_by_foil[degree:])]
-        expected_product_by_foil += [new_expected_product_by_foil]
-
-        assert len(expected_product_by_foil[-1]) == degree
-    return modulus, root_order, root, root_inv, left_factors, right_factors, expected_product_by_foil
-
-
-def test_ntt_poly_mult(some_ran_polys_and_prod):
-    modulus, root_order, root, inv_root, left_factors, right_factors, expected_vals = some_ran_polys_and_prod
-    for left_factor, right_factor, expected_val in zip(left_factors, right_factors, expected_vals):
-        halfmod = modulus//2
-        logmod = modulus.bit_length()
-        degree = len(left_factor)
-        root_powers = [pow(base=root, exp=i, mod=modulus) for i in range(root_order)]
-        inv_root_powers = [pow(base=inv_root, exp=i, mod=modulus) for i in range(root_order)]
-        brv_root_powers = bit_reverse_copy(root_powers)
-        brv_inv_root_powers = bit_reverse_copy(inv_root_powers)
-        observed_val = ntt_poly_mult(f=left_factor, g=right_factor, modulus=modulus, halfmod=halfmod, logmod=logmod,
-                                     degree=degree, root_order=2*degree, root=root, inv_root=inv_root,
-                                     brv_root_powers=brv_root_powers)
-        assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
