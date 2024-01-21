@@ -16,12 +16,12 @@ def sample_polynomial_coefficient_representation(modulus: int, degree: int, root
         for i in range(degree - 1, 0, -1):
             j = randbelow(i + 1)
             coefficients[i], coefficients[j] = coefficients[j], coefficients[i]
-    return PolynomialCoefficientRepresentation(modulus=modulus, representation=coefficients)
+    return PolynomialCoefficientRepresentation(modulus=modulus, vals=coefficients)
 
 
 def sample_polynomial_ntt_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int) -> PolynomialNTTRepresentation:
     values: List[int] = [randbelow(modulus) - (modulus // 2) for _ in range(degree)]
-    return PolynomialNTTRepresentation(modulus=modulus, representation=values)
+    return PolynomialNTTRepresentation(modulus=modulus, vals=values)
 
 
 def sample_coefficient_matrix(modulus: int, degree: int, root_order: int, root: int, inv_root: int, num_rows: int,

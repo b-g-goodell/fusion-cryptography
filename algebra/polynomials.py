@@ -2,26 +2,30 @@
 
 from typing import Dict, List, Union, Tuple
 from api.ntt_api import ntt_api
-from algebra.ntt import cent, find_primitive_root, has_primitive_root_of_unity
+from algebra.ntt import cent, find_primitive_root, has_primitive_root_of_unity, is_odd_prime, is_pow_two_geq_two
 
 cached_halfmods: Dict[int, int] = {}
 cached_logmods: Dict[int, int] = {}
 cached_inv_root: Dict[Tuple[int, int], int] = {}
 
 
-def _validate_modulus_and_coefficients(modulus, coefficients):
+def _validate_modulus_and_vals(modulus, vals):
     if not isinstance(modulus, int):
         raise TypeError("modulus must be an int")
-    elif not has_primitive_root_of_unity(modulus=modulus, root_order=2 * len(coefficients)):
-        raise ValueError("Modulus does not have primitive root of unity of appropriate order.")
-    elif not all(isinstance(x, int) for x in coefficients):
-        raise TypeError("All coefficients must be integers.")
+    elif not isinstance(vals, list) or not all(isinstance(x, int) for x in vals):
+        raise TypeError("coefficients must be list of integers")
+    elif not is_odd_prime(val=modulus):
+        raise ValueError("modulus must be an odd prime")
+    elif not has_primitive_root_of_unity(modulus=modulus, root_order=2 * len(vals)):
+        raise ValueError("modulus does not have primitive root of unity of appropriate order.")
+    elif not is_pow_two_geq_two(val=len(vals)):
+        raise ValueError("coefficient vector must have power of 2 length")
 
 
-def _validate_same_ring(modulus_a, representation_a, modulus_b, representation_b) -> bool:
-    if modulus_a != modulus_b:
+def _validate_same_ring(mod_a, vals_a, mod_b, vals_b) -> bool:
+    if mod_a != mod_b:
         raise NotImplementedError("Cannot do arithmetic with polynomials with different moduli")
-    elif len(representation_a) != len(representation_b):
+    elif len(vals_a) != len(vals_b):
         raise NotImplementedError("Cannot do arithmetic (addition, multiplication, equality checks) ith polynomials with different max degrees")
 
 
@@ -35,15 +39,15 @@ class PolynomialRepresentation:
         representation (List[int]): The representation (d-list of integers))
     """
     modulus: int
-    representation: List[int]
+    vals: List[int]
 
-    def __init__(self, modulus: int, representation: List[int]):
+    def __init__(self, modulus: int, vals: List[int]):
         """
         Initialize a PolynomialRepresentation instance.
 
         Args:
             modulus (int): The modulus q for arithmetic operations.
-            representation (List[int]): The d-list of values.
+            vals (List[int]): The d-list of values.
 
         Raises:
             TypeError: If the modulus is not an int.
@@ -52,21 +56,21 @@ class PolynomialRepresentation:
                         root of unity of correct degree.
             ValueError: If representation is not a list of integers.
         """
-        _validate_modulus_and_coefficients(modulus, representation)
+        _validate_modulus_and_vals(modulus, vals)
         self.modulus = modulus
-        self.representation = [cent(val=x, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x in representation]
+        self.vals = [cent(val=x, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x in vals]
 
     def __str__(self):
-        return f"PolynomialRepresentation(modulus={self.modulus}, representation={self.representation})"
+        return f"PolynomialRepresentation(modulus={self.modulus}, representation={self.vals})"
 
     def __repr__(self):
         return self.__str__()
 
     def __iter__(self):
-        return iter(self.representation)
+        return iter(self.vals)
 
     def __eq__(self, other):
-        return isinstance(other, PolynomialRepresentation) and len(self.representation) == len(other.representation) and all((x - y) % self.modulus == 0 for x, y in zip(self, other))
+        return isinstance(other, PolynomialRepresentation) and len(self.vals) == len(other.vals) and all((x - y) % self.modulus == 0 for x, y in zip(self, other))
 
     def __add__(self, other):
         # Component-wise addition modulo the modulus
@@ -74,9 +78,10 @@ class PolynomialRepresentation:
             return self
         elif not isinstance(other, PolynomialRepresentation):
             raise NotImplementedError("Addition with PolynomialRepresentation and non-PolynomialRepresentation is not defined.")
-        _validate_same_ring(modulus_a=self.modulus, representation_a=self.representation, modulus_b=other.modulus,
-                            representation_b=other.representation)
-        return PolynomialRepresentation(modulus=self.modulus, representation=[cent(val=x+y, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x, y in zip(self.representation, other.representation)])
+        _validate_same_ring(mod_a=self.modulus, vals_a=self.vals, mod_b=other.modulus, vals_b=other.vals)
+        return PolynomialRepresentation(modulus=self.modulus, vals=[
+            cent(val=x + y, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x, y in
+            zip(self.vals, other.vals)])
 
     def __radd__(self, other):
         if other == 0:
@@ -84,7 +89,7 @@ class PolynomialRepresentation:
         return self + other
 
     def __neg__(self):
-        return PolynomialRepresentation(modulus=self.modulus, representation=[-x for x in self.representation])
+        return PolynomialRepresentation(modulus=self.modulus, vals=[-x for x in self.vals])
 
     def __sub__(self, other):
         return self + (-other)
@@ -94,8 +99,7 @@ class PolynomialRepresentation:
 
     def __mul__(self, other):
         # Context-sensitive, not implemented for base class
-        _validate_same_ring(modulus_a=self.modulus, representation_a=self.representation, modulus_b=other.modulus,
-                            representation_b=other.representation)
+        _validate_same_ring(mod_a=self.modulus, vals_a=self.vals, mod_b=other.modulus, vals_b=other.vals)
 
     def __rmul__(self, other):
         return self.__mul__(other=other)
@@ -114,15 +118,15 @@ class PolynomialRepresentation:
 
     @property
     def root_order(self) -> int:
-        return 2*len(self.representation)
+        return 2*len(self.vals)
 
     @property
     def degree(self) -> int:
-        return len(self.representation)
+        return len(self.vals)
 
     @property
     def root(self) -> int:
-        return find_primitive_root(modulus=self.modulus, root_order=2*len(self.representation))
+        return find_primitive_root(modulus=self.modulus, root_order=2*len(self.vals))
 
     @property
     def inv_root(self) -> int:
@@ -132,12 +136,14 @@ class PolynomialRepresentation:
 
 
 class PolynomialCoefficientRepresentation(PolynomialRepresentation):
-    def __init__(self, modulus: int, representation: List[int]):
-        super().__init__(modulus=modulus, representation=representation)
+    norm_p: Union[int, str]
+
+    def __init__(self, modulus: int, vals: List[int]):
+        super().__init__(modulus=modulus, vals=vals)
 
     def __str__(self):
         result: str = f"PolynomialCoefficientRepresentation(modulus={self.modulus}, coefficient representation="
-        for i, c in enumerate(self.representation):
+        for i, c in enumerate(self.vals):
             if c % self.modulus != 0:
                 if i != 0:
                     result += f"{c}X**{i} + "
@@ -157,7 +163,7 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
             raise NotImplementedError(
                 f"Addition for {type(self)} and {type(other)} not implemented"
             )
-        return PolynomialCoefficientRepresentation(modulus=self.modulus, representation=super().__add__(other).representation)
+        return PolynomialCoefficientRepresentation(modulus=self.modulus, vals=super().__add__(other).vals)
 
     def __mul__(self, other):
         # compute product by foiling
@@ -165,28 +171,32 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
         if not isinstance(other, PolynomialCoefficientRepresentation):
             raise NotImplementedError("Addition with PolynomialCoefficientRepresentation and non-PolynomialCoefficientRepresentation is not defined.")
         c: List[int] = [0 for _ in range(2 * self.degree)]
-        for i, x in enumerate(self.representation):
-            for j, y in enumerate(other.representation):
+        for i, x in enumerate(self.vals):
+            for j, y in enumerate(other.vals):
                 c[i + j] += x * y
                 if abs(c[i+j]) > 3*self.modulus//2:
                     c[i+j] = cent(val=c[i+j], modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
-        return PolynomialCoefficientRepresentation(modulus=self.modulus, representation=[cent(val=x - y, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x, y in zip(c[:self.degree], c[self.degree:])])
+        return PolynomialCoefficientRepresentation(modulus=self.modulus, vals=[
+            cent(val=x - y, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x, y in
+            zip(c[:self.degree], c[self.degree:])])
 
-    def norm(self, p: Union[int, str]) -> int:
-        if p != "infty":
-            raise NotImplementedError(f"norm for p={p} not implemented")
-        return max(abs(x) for x in self.representation)
+    @property
+    def norm(self) -> int:
+        if self.norm_p != "infty":
+            raise NotImplementedError(f"norm for p={self.norm_p} not implemented")
+        return max(abs(x) for x in self.vals)
 
+    @property
     def weight(self) -> int:
-        return sum(1 if x % self.modulus != 0 else 0 for x in self.representation)
+        return sum(1 if x % self.modulus != 0 else 0 for x in self.vals)
 
 
 class PolynomialNTTRepresentation(PolynomialRepresentation):
-    def __init__(self, modulus: int, representation: List[int]):
-        super().__init__(modulus=modulus, representation=representation)
+    def __init__(self, modulus: int, vals: List[int]):
+        super().__init__(modulus=modulus, vals=vals)
 
     def __str__(self):
-        return f"PolynomialNTTRepresentation(modulus={self.modulus}, values={self.representation})"
+        return f"PolynomialNTTRepresentation(modulus={self.modulus}, values={self.vals})"
 
     def __eq__(self, other):
         if not isinstance(other, PolynomialNTTRepresentation):
@@ -198,32 +208,29 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             raise NotImplementedError(
                 f"Addition for {type(self)} and {type(other)} not implemented"
             )
-        return PolynomialNTTRepresentation(modulus=self.modulus, representation=super().__add__(other).representation)
+        return PolynomialNTTRepresentation(modulus=self.modulus, vals=super().__add__(other).vals)
 
     def __mul__(self, other):
         # compute Hadamard product
         super().__mul__(other)
         if not isinstance(other, PolynomialRepresentation):
             raise NotImplementedError("Addition with PolynomialRepresentation and non-PolynomialRepresentation is not defined.")
-        return PolynomialNTTRepresentation(
-            modulus=self.modulus,
-            representation=[cent(val=x * y, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x, y in zip(self.representation, other.representation)]
-        )
+        return PolynomialNTTRepresentation(modulus=self.modulus, vals=[
+            cent(val=x * y, modulus=self.modulus, halfmod=self.halfmod, logmod=self.logmod) for x, y in
+            zip(self.vals, other.vals)])
 
 
 def transform_coefficients_to_ntt(x: PolynomialCoefficientRepresentation) -> PolynomialNTTRepresentation:
-    y: List[int] = ntt_api(val=x.representation, modulus=x.modulus, inv_flag=False)
-    return PolynomialNTTRepresentation(modulus=x.modulus, representation=y)
+    transformed_vals: List[int] = ntt_api(val=x.vals, modulus=x.modulus, inv_flag=False)
+    return PolynomialNTTRepresentation(modulus=x.modulus, vals=transformed_vals)
 
 
 def transform_ntt_to_coefficients(x: PolynomialNTTRepresentation) -> PolynomialCoefficientRepresentation:
-    y: List[int] = ntt_api(val=x.representation, modulus=x.modulus, inv_flag=True)
-    return PolynomialCoefficientRepresentation(modulus=x.modulus, representation=y)
+    transformed_vals: List[int] = ntt_api(val=x.vals, modulus=x.modulus, inv_flag=True)
+    return PolynomialCoefficientRepresentation(modulus=x.modulus, vals=transformed_vals)
 
 
-def transform(
-    x: Union[PolynomialCoefficientRepresentation, PolynomialNTTRepresentation],
-) -> Union[PolynomialNTTRepresentation, PolynomialCoefficientRepresentation]:
+def transform(x: Union[PolynomialCoefficientRepresentation, PolynomialNTTRepresentation]) -> Union[PolynomialNTTRepresentation, PolynomialCoefficientRepresentation]:
     if not (isinstance(x, PolynomialCoefficientRepresentation) or isinstance(x, PolynomialNTTRepresentation)):
         raise NotImplementedError(f"Transform for {type(x)} not implemented")
     elif isinstance(x, PolynomialCoefficientRepresentation):

@@ -120,11 +120,11 @@ def cent(val: int, modulus: int, halfmod: int, logmod: int) -> int:
     return z
 
 
-def is_root_of_unity(purported_root: int, modulus: int, root_order: int) -> bool:
+def is_root_of_unity(val: int, modulus: int, root_order: int) -> bool:
     """
     Check if val is a root of unity of order root_order modulo modulus.
-    :param purported_root: Input integer
-    :type purported_root: int
+    :param val: Input integer
+    :type val: int
     :param modulus: Input modulus
     :type modulus: int
     :param root_order: Order of the root of unity
@@ -132,21 +132,21 @@ def is_root_of_unity(purported_root: int, modulus: int, root_order: int) -> bool
     :return b: Boolean indicating whether val is a root of unity of order root_order modulo modulus
     :rtype: bool
     """
-    if not isinstance(purported_root, int) or not isinstance(modulus, int) or not isinstance(root_order, int):
+    if not isinstance(val, int) or not isinstance(modulus, int) or not isinstance(root_order, int):
         raise TypeError("Input must be integers")
-    if (purported_root, modulus, root_order) not in CACHED_IS_ROOT_OF_UNITY:
-        CACHED_IS_ROOT_OF_UNITY[(purported_root, modulus, root_order)] = (
+    if (val, modulus, root_order) not in CACHED_IS_ROOT_OF_UNITY:
+        CACHED_IS_ROOT_OF_UNITY[(val, modulus, root_order)] = (
                 modulus >= 3
                 and root_order >= 2
-                and pow(purported_root, root_order, modulus) == 1)
-    return CACHED_IS_ROOT_OF_UNITY[(purported_root, modulus, root_order)]
+                and pow(val, root_order, modulus) == 1)
+    return CACHED_IS_ROOT_OF_UNITY[(val, modulus, root_order)]
 
 
-def is_primitive_root(purported_root: int, modulus: int, root_order: int) -> bool:
+def is_primitive_root(val: int, modulus: int, root_order: int) -> bool:
     """
     Check if val is a primitive root of order root_order modulo modulus.
-    :param purported_root: Input integer
-    :type purported_root: int
+    :param val: Input integer
+    :type val: int
     :param modulus: Input modulus
     :type modulus: int
     :param root_order: Order of the root of unity
@@ -154,13 +154,13 @@ def is_primitive_root(purported_root: int, modulus: int, root_order: int) -> boo
     :return b: Boolean indicating whether val is a primitive root of order root_order modulo modulus
     :rtype: bool
     """
-    if not isinstance(purported_root, int) or not isinstance(modulus, int) or not isinstance(root_order, int):
+    if not isinstance(val, int) or not isinstance(modulus, int) or not isinstance(root_order, int):
         raise TypeError("Input must be integers")
-    if (purported_root, modulus, root_order) not in CACHED_IS_PRIMITIVE_ROOT_OF_UNITY:
-        is_rou: bool = is_root_of_unity(purported_root=purported_root, modulus=modulus, root_order=root_order)
-        is_prim: bool = is_rou and all(pow(purported_root, i, modulus) != 1 for i in range(1, root_order))
-        CACHED_IS_PRIMITIVE_ROOT_OF_UNITY[(purported_root, modulus, root_order)] = is_prim
-    return CACHED_IS_PRIMITIVE_ROOT_OF_UNITY[(purported_root, modulus, root_order)]
+    if (val, modulus, root_order) not in CACHED_IS_PRIMITIVE_ROOT_OF_UNITY:
+        is_rou: bool = is_root_of_unity(val=val, modulus=modulus, root_order=root_order)
+        is_prim: bool = is_rou and all(pow(val, i, modulus) != 1 for i in range(1, root_order))
+        CACHED_IS_PRIMITIVE_ROOT_OF_UNITY[(val, modulus, root_order)] = is_prim
+    return CACHED_IS_PRIMITIVE_ROOT_OF_UNITY[(val, modulus, root_order)]
 
 
 def find_primitive_root(modulus: int, root_order: int) -> int:
@@ -180,9 +180,9 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
     elif (modulus, root_order) not in CACHED_FIND_PRIMITIVE_ROOT:
         CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)] = None
         r: int = 2
-        while r < modulus and not is_primitive_root(purported_root=r, modulus=modulus, root_order=root_order):
+        while r < modulus and not is_primitive_root(val=r, modulus=modulus, root_order=root_order):
             r += 1
-        if not is_primitive_root(purported_root=r, modulus=modulus, root_order=root_order):
+        if not is_primitive_root(val=r, modulus=modulus, root_order=root_order):
             raise RuntimeError(
                 f"No primitive root found with modulus={modulus}, root_order={root_order}, despite that"
                 + f"has_primitive_root_of_unity returned True."
@@ -190,9 +190,8 @@ def find_primitive_root(modulus: int, root_order: int) -> int:
         CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)] = r
     return CACHED_FIND_PRIMITIVE_ROOT[(modulus, root_order)]
 
-
-def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers: List[int], inv_flag: bool,
-                       halfmod: int, logmod: int):
+# val, modulus, halfmod, logmod, root_order, brv_powers, inv_flag
+def check_ntt_and_intt(val: List[int], modulus: int, halfmod: int, logmod: int, root_order: int, brv_powers: List[int], inv_flag: bool):
     if not isinstance(val, list) or not all(isinstance(x, int) for x in val):
         raise TypeError("input val must be a list of integers")
     elif not isinstance(modulus, int):
@@ -236,8 +235,8 @@ def check_ntt_and_intt(val: List[int], modulus: int, root_order: int, brv_powers
     pass
 
 
-def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root_powers: List[int], halfmod: int,
-                     logmod: int) -> List[int]:
+def cooley_tukey_ntt(val: List[int], modulus: int, halfmod: int, logmod: int, root_order: int,
+                     bit_rev_root_powers: List[int]) -> List[int]:
     """
     Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*n, and a list of integers, root_powers, which are powers of a primitive
@@ -262,8 +261,8 @@ def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root
     :return val: Output list of integers
     :rtype: List[int]
     """
-    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_root_powers, inv_flag=False,
-                       halfmod=halfmod, logmod=logmod)
+    check_ntt_and_intt(val=val, modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                       brv_powers=bit_rev_root_powers, inv_flag=False)
     u: int
     v: int
     n: int = len(val)
@@ -283,8 +282,8 @@ def cooley_tukey_ntt(val: List[int], modulus: int, root_order: int, bit_rev_root
     return val
 
 
-def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_inv_root_powers: List[int],
-                         halfmod: int, logmod: int) -> List[int]:
+def gentleman_sande_intt(val: List[int], modulus: int, halfmod: int, logmod: int, root_order: int,
+                         bit_rev_inv_root_powers: List[int]) -> List[int]:
     """
     Input val, a list of n := len(val) integers in bit-reversed ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*n, and a list of integers, inv_root_powers, which are powers of the
@@ -310,8 +309,8 @@ def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_
     :return val: Output list of integers
     :rtype: List[int]
     """
-    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=bit_rev_inv_root_powers,
-                       inv_flag=True, halfmod=halfmod, logmod=logmod)
+    check_ntt_and_intt(val=val, modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                       brv_powers=bit_rev_inv_root_powers, inv_flag=True)
     u: int
     v: int
     n: int = len(val)
@@ -336,20 +335,20 @@ def gentleman_sande_intt(val: List[int], modulus: int, root_order: int, bit_rev_
     return val
 
 
-def check_ntt_poly_mult(f: List[int], g: List[int], degree: int, modulus: int, halfmod: int, logmod: int,
+def check_ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod: int, degree: int,
                         root_order: int, root: int, inv_root: int, brv_root_powers: List[int]):
     # Re-use existing check functions for common checks
     check_modulus_halfmod_logmod(modulus, halfmod, logmod)
 
     # Check for both f and g using check_ntt_and_intt
     for val in [f, g]:
-        check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=brv_root_powers, inv_flag=False,
-                           halfmod=halfmod, logmod=logmod)
+        check_ntt_and_intt(val=val, modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                           brv_powers=brv_root_powers, inv_flag=False)
 
     # Perform unique checks for ntt_poly_mult function
     if not isinstance(root, int) or not isinstance(inv_root, int):
         raise TypeError("Parameters root and inv_root must be integers.")
-    elif not is_primitive_root(purported_root=root, modulus=modulus, root_order=root_order):
+    elif not is_primitive_root(val=root, modulus=modulus, root_order=root_order):
         raise ValueError("Root must be a primitive root of unity.")
     elif (root * inv_root) % modulus != 1:
         raise ValueError("Inv_root must be the inverse of the root of unity.")
@@ -370,19 +369,19 @@ def ntt_poly_mult(f: List[int], g: List[int], modulus: int, halfmod: int, logmod
     brv_root_powers: List[int] = bit_reverse_copy(val=root_powers)
     inv_root_powers: List[int] = [pow(inv_root, i, modulus) for i in range(degree)]
     brv_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
-    fhat = cooley_tukey_ntt(val=deepcopy(f), modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
-                     halfmod=halfmod, logmod=logmod)
-    ghat = cooley_tukey_ntt(val=deepcopy(g), modulus=modulus, root_order=root_order, bit_rev_root_powers=brv_root_powers,
-                     halfmod=halfmod, logmod=logmod)
+    fhat = cooley_tukey_ntt(val=deepcopy(f), modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                            bit_rev_root_powers=brv_root_powers)
+    ghat = cooley_tukey_ntt(val=deepcopy(g), modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                            bit_rev_root_powers=brv_root_powers)
     fghat: List[int] = [
         cent(val=x * y, modulus=modulus, halfmod=halfmod, logmod=logmod)
         for x, y in zip(fhat, ghat)
     ]
-    return gentleman_sande_intt(val=fghat, modulus=modulus, root_order=root_order, bit_rev_inv_root_powers=brv_inv_root_powers,
-                         halfmod=halfmod, logmod=logmod)
+    return gentleman_sande_intt(val=fghat, modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                                bit_rev_inv_root_powers=brv_inv_root_powers)
 
 
-def derived_params(degree: int, modulus: int, inv_flag: bool) -> Tuple[int, int, int, int, int, List[int]]:
+def derived_params(modulus: int, degree: int, inv_flag: bool) -> Tuple[int, int, int, int, int, int, List[int], bool]:
     """ Derive root order from list length, derive root or inv_root from modulus and root order and inv_flag,
     compute root powers, then bit reverse."""
     if not isinstance(degree, int):
@@ -398,9 +397,9 @@ def derived_params(degree: int, modulus: int, inv_flag: bool) -> Tuple[int, int,
     root_order: int = 2*degree
     halfmod: int = modulus//2
     logmod: int = modulus.bit_length()
-    root: int = find_primitive_root(modulus=modulus, root_order=root_order)
+    root_or_inv_root: int = find_primitive_root(modulus=modulus, root_order=root_order)
     if inv_flag:
-        root = pow(base=root, exp=modulus - 2, mod=modulus)
-    powers: List[int] = [pow(base=root, exp=i, mod=modulus) for i in range(degree)]
+        root_or_inv_root = pow(base=root_or_inv_root, exp=modulus - 2, mod=modulus)
+    powers: List[int] = [pow(base=root_or_inv_root, exp=i, mod=modulus) for i in range(degree)]
     brv_powers: List[int] = bit_reverse_copy(powers)
-    return halfmod, logmod, degree, root_order, root, brv_powers,
+    return modulus, halfmod, logmod, degree, root_order, root_or_inv_root, brv_powers, inv_flag

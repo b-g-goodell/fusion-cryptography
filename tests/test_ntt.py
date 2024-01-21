@@ -194,10 +194,14 @@ TEST_MONOMIAL_MULTIPLICATION = [
 ]
 TEST_MONOMIAL_MULTIPLICATION = [
     t + tuple([
-        cooley_tukey_ntt(val=deepcopy(t[-3]), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),  # forward transform of a
-        gentleman_sande_intt(val=deepcopy(t[-3]), modulus=t[0], root_order=2*t[1], bit_rev_inv_root_powers=t[7], halfmod=t[2], logmod=t[3]),  # inverse transform of a
-        gentleman_sande_intt(val=deepcopy(t[-2]), modulus=t[0], root_order=2*t[1], bit_rev_inv_root_powers=t[7], halfmod=t[2], logmod=t[3]),  # inverse transform of hand-computed forward transform
-        cooley_tukey_ntt(val=deepcopy(t[-1]), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),   # forward transform of hand-computed inverse transform
+        cooley_tukey_ntt(val=deepcopy(t[-3]), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                         bit_rev_root_powers=t[5]),  # forward transform of a
+        gentleman_sande_intt(val=deepcopy(t[-3]), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                             bit_rev_inv_root_powers=t[7]),  # inverse transform of a
+        gentleman_sande_intt(val=deepcopy(t[-2]), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                             bit_rev_inv_root_powers=t[7]),  # inverse transform of hand-computed forward transform
+        cooley_tukey_ntt(val=deepcopy(t[-1]), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                         bit_rev_root_powers=t[5]),   # forward transform of hand-computed inverse transform
     ])
     for t in TEST_MONOMIAL_MULTIPLICATION
 ]
@@ -221,15 +225,19 @@ for t in TEST_RAN_MUL_TWO_RANDOM_POLYS:
     fg = [cent(val=x-y, modulus=t[0], halfmod=t[2], logmod=t[3]) for x, y in zip(fg[:t[1]], fg[t[1]:])]
     TEST_RAN_MUL_CASES += [t + tuple([
         fg,
-        cooley_tukey_ntt(val=deepcopy(f), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),
-        cooley_tukey_ntt(val=deepcopy(g), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),
-        cooley_tukey_ntt(val=deepcopy(fg), modulus=t[0], root_order=2*t[1], bit_rev_root_powers=t[5], halfmod=t[2], logmod=t[3]),
+        cooley_tukey_ntt(val=deepcopy(f), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                         bit_rev_root_powers=t[5]),
+        cooley_tukey_ntt(val=deepcopy(g), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                         bit_rev_root_powers=t[5]),
+        cooley_tukey_ntt(val=deepcopy(fg), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                         bit_rev_root_powers=t[5]),
     ])]
 TEST_RAN_MUL_CASES = [t + tuple([
     [cent(val=x*y, modulus=t[0], halfmod=t[2], logmod=t[3]) for x, y in zip(t[-3], t[-2])]
 ]) for t in TEST_RAN_MUL_CASES]
 TEST_RAN_MUL_CASES = [t + tuple([
-    gentleman_sande_intt(val=deepcopy(t[-1]), modulus=t[0], root_order=2*t[1], bit_rev_inv_root_powers=t[7], halfmod=t[2], logmod=t[3]),
+    gentleman_sande_intt(val=deepcopy(t[-1]), modulus=t[0], halfmod=t[2], logmod=t[3], root_order=2 * t[1],
+                         bit_rev_inv_root_powers=t[7]),
 ]) for t in TEST_RAN_MUL_CASES]
 TEST_RAN_MUL_CASES = [t + tuple([
     [cent(val=x-y, modulus=t[0], halfmod=t[2], logmod=t[3]) for x, y in zip(t[-1], t[-6])]
@@ -281,12 +289,12 @@ def test_cent(val, modulus, halfmod, logmod, expected_value):
 
 @pytest.mark.parametrize('val, modulus, root_order, expected_value', IS_ROOT_OF_UNITY_TEST_DATA)
 def test_is_root_of_unity(val, modulus, root_order, expected_value):
-    assert is_root_of_unity(purported_root=val, modulus=modulus, root_order=root_order) == expected_value
+    assert is_root_of_unity(val=val, modulus=modulus, root_order=root_order) == expected_value
 
 
 @pytest.mark.parametrize('val, modulus, root_order, expected_value', IS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA)
 def test_is_primitive_root_of_unity(val, modulus, root_order, expected_value):
-    assert is_primitive_root(purported_root=val, modulus=modulus, root_order=root_order) == expected_value
+    assert is_primitive_root(val=val, modulus=modulus, root_order=root_order) == expected_value
 
 
 @pytest.mark.parametrize('modulus, root_order, expected_value', FIND_PRIMITIVE_ROOT_TEST_DATA)
@@ -296,13 +304,15 @@ def test_find_primitive_root(modulus, root_order, expected_value):
 
 @pytest.mark.parametrize('val,modulus,root_order,inv_flag,root,brv_powers,halfmod,logmod', CHECK_NTT_AND_INTT_VALID_DATA)
 def test_check_ntt_and_intt_valid_data(val, modulus, root_order, inv_flag, root, brv_powers, halfmod, logmod):
-    check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=brv_powers, inv_flag=inv_flag, halfmod=halfmod, logmod=logmod)
+    check_ntt_and_intt(val=val, modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                       brv_powers=brv_powers, inv_flag=inv_flag)
 
 
 @pytest.mark.parametrize('val,modulus,root_order,inv_flag,brv_powers,halfmod,logmod,exception_type,error_message', CHECK_NTT_AND_INTT_ERRORS)
 def test_check_ntt_and_intt_errors(val, modulus, root_order, inv_flag, brv_powers, halfmod, logmod, exception_type, error_message):
     with pytest.raises(exception_type) as exc_info:
-        check_ntt_and_intt(val=val, modulus=modulus, root_order=root_order, brv_powers=brv_powers, inv_flag=inv_flag, halfmod=halfmod, logmod=logmod)
+        check_ntt_and_intt(val=val, modulus=modulus, halfmod=halfmod, logmod=logmod, root_order=root_order,
+                           brv_powers=brv_powers, inv_flag=inv_flag)
     assert str(exc_info.value) == error_message
 
 
