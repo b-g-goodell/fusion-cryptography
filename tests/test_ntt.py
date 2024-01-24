@@ -1,15 +1,17 @@
 import pytest
 from typing import List, Tuple
 from secrets import randbelow
-from algebra.ntt import (
+from algebra.supp import (
     is_odd_prime,
-    is_pow_two_geq_two,
     has_primitive_root_of_unity,
-    bit_reverse_copy,
-    cent,
     is_root_of_unity,
     is_primitive_root,
     find_primitive_root,
+)
+from algebra.ntt import (
+    is_pow_two_geq_two,
+    bit_reverse_copy,
+    cent,
     cooley_tukey_ntt,
     gentleman_sande_intt,
     ntt_poly_mult,
@@ -95,6 +97,7 @@ FIND_PRIMITIVE_ROOT_TEST_DATA = [
     (17, 16, 3),
     (257, 128, 9)
 ]
+find_primitive_root(modulus=17, root_order=16)
 COOLEY_TUKEY_NTT_TEST_DATA = [
     (17, 8, 5, 16, find_primitive_root(modulus=17, root_order=16),
      pow(find_primitive_root(modulus=17, root_order=16), 15, 17),
@@ -234,7 +237,7 @@ def test_find_primitive_root(modulus, root_order, expected_value):
 def test_cooley_tukey(modulus, halfmod, logmod, root_order, root, root_inv, root_powers, bit_rev_root_powers, val,
                       expected_val):
     observed_val = cooley_tukey_ntt(val=val, modulus=modulus, root_order=root_order,
-                                    bit_rev_root_powers=bit_rev_root_powers, halfmod=halfmod, logmod=logmod, root=0)
+                                    bit_rev_root_powers=bit_rev_root_powers, halfmod=halfmod, logmod=logmod)
     assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
 
 
@@ -244,8 +247,7 @@ def test_cooley_tukey(modulus, halfmod, logmod, root_order, root, root_inv, root
 def test_gentleman_sande(modulus, halfmod, logmod, root_order, root, root_inv, root_inv_powers, bit_rev_root_inv_powers,
                          val, expected_val):
     observed_val = gentleman_sande_intt(val=val, modulus=modulus, root_order=root_order,
-                                        bit_rev_inv_root_powers=bit_rev_root_inv_powers, halfmod=halfmod, logmod=logmod,
-                                        inv_root=0)
+                                        bit_rev_inv_root_powers=bit_rev_root_inv_powers, halfmod=halfmod, logmod=logmod)
     assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
 
 
@@ -286,6 +288,5 @@ def test_ntt_poly_mult(some_ran_polys_and_prod):
         brv_root_powers = bit_reverse_copy(root_powers)
         brv_inv_root_powers = bit_reverse_copy(inv_root_powers)
         observed_val = ntt_poly_mult(f=left_factor, g=right_factor, modulus=modulus, halfmod=halfmod, logmod=logmod,
-                                     degree=degree, root_order=2*degree, root=root, inv_root=inv_root,
-                                     brv_root_powers=brv_root_powers)
+                                     degree=degree, root_order=2 * degree, root=root, inv_root=inv_root)
         assert all((x-y) % modulus == 0 for x, y in zip(observed_val, expected_val))
