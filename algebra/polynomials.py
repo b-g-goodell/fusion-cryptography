@@ -1,13 +1,13 @@
 from copy import deepcopy
 from typing import Dict, List, Union
 from algebra.ntt import (
-    cent,
-    cooley_tukey_ntt,
-    gentleman_sande_intt,
-    bit_reverse_copy,
-    has_prou,
-    is_prou,
-    is_root_inverse,
+    _cent,
+    _cooley_tukey_ntt,
+    _gentleman_sande_intt,
+    _bit_reverse_copy,
+    _has_prou,
+    _is_prou,
+    _is_root_inverse,
 )
 from algebra.errors import *
 
@@ -27,11 +27,11 @@ class PolynomialRepresentation(object):
     ):
         if not isinstance(modulus, int) or not isinstance(degree, int) or not isinstance(root, int) or not isinstance(inv_root, int) or not isinstance(root_order, int):
             raise TypeError(MUST_BE_INT_ERR)
-        elif not has_prou(mod=modulus, deg=degree):
+        elif not _has_prou(mod=modulus, deg=degree):
             raise ValueError(MUST_HAVE_PROU_ERR)
-        elif not is_prou(root=root,mod=modulus, deg=degree):
+        elif not _is_prou(root=root, mod=modulus, deg=degree):
             raise ValueError(MUST_BE_CORRECT_ROOT_ERR)
-        elif not is_root_inverse:
+        elif not _is_root_inverse:
             raise ValueError(MUST_BE_CORRECT_INVERSE_ROOT_ERR)
         self.modulus = modulus
         self.degree = degree
@@ -121,7 +121,7 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
             inv_root=self.inv_root,
             root_order=self.root_order,
             coefficients=[
-                cent(val=x + y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
+                _cent(val=x + y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
                 for x, y in zip(self.coefficients, other.coefficients)
             ],
         )
@@ -166,7 +166,7 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
         for i, x in enumerate(self.coefficients):
             for j, y in enumerate(other.coefficients):
                 c[i + j] += x * y
-        c = [cent(val=x - y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
+        c = [_cent(val=x - y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
              for x, y in zip(c[:self.degree], c[self.degree:])]
         return PolynomialCoefficientRepresentation(
             modulus=self.modulus,
@@ -261,7 +261,7 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             inv_root=self.inv_root,
             root_order=self.root_order,
             values=[
-                cent(val=x + y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
+                _cent(val=x + y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
                 for x, y in zip(self.values, other.values)
             ],
         )
@@ -309,7 +309,7 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             inv_root=self.inv_root,
             root_order=self.root_order,
             values=[
-                cent(val=x * y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
+                _cent(val=x * y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
                 for x, y in zip(self.values, other.values)],)
 
     def __rmul__(self, other):
@@ -322,9 +322,9 @@ def transform(
     if isinstance(x, PolynomialCoefficientRepresentation):
         x_coefs: List[int] = deepcopy(x.coefficients)
         root_powers = [pow(x.root, i, x.modulus) for i in range(x.degree)]
-        bit_rev_root_powers = bit_reverse_copy(val=root_powers)
-        cooley_tukey_ntt(val=x_coefs, mod=x.modulus, halfmod=x.halfmod, logmod=x.logmod, deg=x.degree, root=x.root,
-                         brv_powers=bit_rev_root_powers)
+        bit_rev_root_powers = _bit_reverse_copy(val=root_powers)
+        _cooley_tukey_ntt(val=x_coefs, mod=x.modulus, halfmod=x.halfmod, logmod=x.logmod, deg=x.degree, root=x.root,
+                          brv_powers=bit_rev_root_powers)
         return PolynomialNTTRepresentation(
             modulus=x.modulus,
             degree=x.degree,
@@ -336,9 +336,9 @@ def transform(
     elif isinstance(x, PolynomialNTTRepresentation):
         x_vals: List[int] = deepcopy(x.values)
         inv_root_powers = [pow(x.inv_root, i, x.modulus) for i in range(x.degree)]
-        bit_rev_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
-        gentleman_sande_intt(val=x_vals, mod=x.modulus, halfmod=x.halfmod, logmod=x.logmod, deg=x.degree, inv_root=x.inv_root,
-                             brv_powers=bit_rev_inv_root_powers)
+        bit_rev_inv_root_powers = _bit_reverse_copy(val=inv_root_powers)
+        _gentleman_sande_intt(val=x_vals, mod=x.modulus, halfmod=x.halfmod, logmod=x.logmod, deg=x.degree, inv_root=x.inv_root,
+                              brv_powers=bit_rev_inv_root_powers)
         return PolynomialCoefficientRepresentation(
             modulus=x.modulus,
             degree=x.degree,
