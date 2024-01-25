@@ -160,6 +160,10 @@ def find_prou(mod: int, deg: int) -> int:
     return CACHED_FIND_PRIMITIVE_ROOT[(mod, deg)]
 
 
+def is_root_inverse(root: int, inv_root: int, mod: int) -> bool:
+    return (root * inv_root) % mod == 1
+
+
 def check_ntt_and_intt(val: List[int], mod: int, halfmod: int, logmod: int, deg: int, root: int, inv_root: int,
                        inv_flag: bool, brv_powers: List[int]):
     if not isinstance(val, list) or not isinstance(brv_powers, list):
@@ -176,9 +180,9 @@ def check_ntt_and_intt(val: List[int], mod: int, halfmod: int, logmod: int, deg:
         raise ValueError(MUST_BE_LIST_W_POW_2_LEN_ERR)
     elif deg != len(val):
         raise ValueError(DEGREE_MISMATCH_ERR)
-    elif root != find_prou(mod=mod, deg=deg):
+    elif not is_prou(root=root, mod=mod, deg=deg):
         raise ValueError(MUST_BE_CORRECT_ROOT_ERR)
-    elif root * inv_root % mod != 1:
+    elif not is_root_inverse(root=root, inv_root=inv_root, mod=mod):
         raise ValueError(MUST_BE_CORRECT_INVERSE_ROOT_ERR)
     elif (not inv_flag and bit_reverse_copy([pow(base=root, exp=i, mod=mod) for i in range(deg)]) != brv_powers) or (inv_flag and bit_reverse_copy([pow(base=inv_root, exp=i, mod=mod) for i in range(deg)]) != brv_powers):
         raise ValueError(MUST_CONSTRUCT_BRV_POWERS_CORRECTLY_ERR)
@@ -285,7 +289,7 @@ def check_ntt_poly_mult(f: List[int], g: List[int], deg: int, mod: int, halfmod:
         raise ValueError(MUST_HAVE_PROU_ERR)
     elif not is_prou(root=root, mod=mod, deg=deg):
         raise ValueError(MUST_BE_CORRECT_ROOT_ERR)
-    elif (root * inv_root) % mod != 1:
+    elif not is_root_inverse(root=root, inv_root=inv_root, mod=mod):
         raise ValueError(MUST_BE_CORRECT_INVERSE_ROOT_ERR)
     elif len(f) != root_order//2:
         raise ValueError(MUST_BE_HALF_FLOORED_ERR)

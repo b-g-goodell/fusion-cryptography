@@ -5,7 +5,11 @@ from algebra.ntt import (
     cooley_tukey_ntt,
     gentleman_sande_intt,
     bit_reverse_copy,
+    has_prou,
+    is_prou,
+    is_root_inverse,
 )
+from algebra.errors import *
 
 cached_halfmods: Dict[int, int] = {}
 cached_logmods: Dict[int, int] = {}
@@ -21,26 +25,14 @@ class PolynomialRepresentation(object):
     def __init__(
         self, modulus: int, degree: int, root: int, inv_root: int, root_order: int
     ):
-        if not isinstance(modulus, int):
-            raise TypeError("modulus must be an int")
-        elif not isinstance(degree, int):
-            raise TypeError("degree must be an int")
-        elif not isinstance(root, int):
-            raise TypeError("root must be an int")
-        elif not isinstance(inv_root, int):
-            raise TypeError("inv_root must be an int")
-        elif not isinstance(root_order, int):
-            raise TypeError("root_order must be an int")
-        elif (modulus - 1) % root_order != 0:
-            raise ValueError("root_order must be a divisor of modulus - 1")
-        elif pow(root, root_order, modulus) != 1:
-            raise ValueError("root must be a root of unity of order root_order")
-        elif any(pow(root, i, modulus) == 1 for i in range(1, root_order)):
-            raise ValueError(
-                "root must be a primitive root of unity of order root_order"
-            )
-        elif (root * inv_root) % modulus != 1:
-            raise ValueError("root and inv_root must be inverses of each other")
+        if not isinstance(modulus, int) or not isinstance(degree, int) or not isinstance(root, int) or not isinstance(inv_root, int) or not isinstance(root_order, int):
+            raise TypeError(MUST_BE_INT_ERR)
+        elif not has_prou(mod=modulus, deg=degree):
+            raise ValueError(MUST_HAVE_PROU_ERR)
+        elif not is_prou(root=root,mod=modulus, deg=degree):
+            raise ValueError(MUST_BE_CORRECT_ROOT_ERR)
+        elif not is_root_inverse:
+            raise ValueError(MUST_BE_CORRECT_INVERSE_ROOT_ERR)
         self.modulus = modulus
         self.degree = degree
         self.root = root
@@ -80,11 +72,11 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
             root_order=root_order,
         )
         if not isinstance(coefficients, list):
-            raise TypeError("coefficients must be a list")
+            raise TypeError(MUST_BE_LIST_ERR)
         elif not all(isinstance(x, int) for x in coefficients):
-            raise TypeError("coefficients must be a list of ints")
+            raise TypeError(MUST_BE_INT_ERR)
         elif len(coefficients) != degree:
-            raise ValueError("coefficients must be of length degree")
+            raise ValueError(DEGREE_MISMATCH_ERR)
         self.coefficients = coefficients
 
     def __str__(self):
@@ -113,21 +105,15 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
         if other == 0:
             return self
         elif not isinstance(other, PolynomialCoefficientRepresentation):
-            raise NotImplementedError(
-                f"Addition for {type(self)} and {type(other)} not implemented"
-            )
+            raise NotImplementedError(TYPE_MISMATCH_ERR)
         elif self.modulus != other.modulus:
-            raise NotImplementedError("Cannot add polynomials with different moduli")
+            raise NotImplementedError(MODULUS_MISMATCH_ERR)
         elif self.degree != other.degree:
-            raise NotImplementedError("Cannot add polynomials with different degrees")
+            raise NotImplementedError(DEGREE_MISMATCH_ERR)
+        elif self.root_order != other.root_order or self.root_order != 2*self.degree:
+            raise NotImplementedError(ROOT_ORDER_MISMATCH_ERR)
         elif self.root != other.root:
-            raise NotImplementedError(
-                "Cannot add polynomials with different roots of unity"
-            )
-        elif self.root_order != other.root_order:
-            raise NotImplementedError(
-                "Cannot add polynomials with different root orders"
-            )
+            raise NotImplementedError(ROOT_MISMATCH_ERR)
         return PolynomialCoefficientRepresentation(
             modulus=self.modulus,
             degree=self.degree,
@@ -167,32 +153,21 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
         elif other == 1:
             return self
         elif not isinstance(other, PolynomialCoefficientRepresentation):
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} and {type(other)} not implemented"
-            )
+            raise NotImplementedError(TYPE_MISMATCH_ERR)
         elif self.modulus != other.modulus:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different moduli not implemented"
-            )
+            raise NotImplementedError(MODULUS_MISMATCH_ERR)
         elif self.degree != other.degree:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different degrees not implemented"
-            )
+            raise NotImplementedError(DEGREE_MISMATCH_ERR)
+        elif self.root_order != other.root_order or self.root_order != 2*self.degree:
+            raise NotImplementedError(ROOT_ORDER_MISMATCH_ERR)
         elif self.root != other.root:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different roots of unity not implemented"
-            )
-        elif self.root_order != other.root_order:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with difference orders of root of unity not implemented"
-            )
+            raise NotImplementedError(ROOT_MISMATCH_ERR)
         c: List[int] = [0 for _ in range(2 * self.degree)]
         for i, x in enumerate(self.coefficients):
             for j, y in enumerate(other.coefficients):
                 c[i + j] += x * y
         c = [cent(val=x - y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
-             for x, y in zip(c[:self.degree], c[self.degree:])
-             ]
+             for x, y in zip(c[:self.degree], c[self.degree:])]
         return PolynomialCoefficientRepresentation(
             modulus=self.modulus,
             degree=self.degree,
@@ -207,7 +182,7 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
 
     def norm(self, p: Union[int, str]) -> int:
         if p != "infty":
-            raise NotImplementedError(f"norm for p={p} not implemented")
+            raise NotImplementedError(NORM_P_NOT_IMPLEMENTED_ERR)
         return max(abs(x) for x in self.coefficients)
 
     def weight(self) -> int:
@@ -234,11 +209,11 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             root_order=root_order,
         )
         if not isinstance(values, list):
-            raise TypeError("values must be a list")
+            raise TypeError(MUST_BE_LIST_ERR)
         elif not all(isinstance(x, int) for x in values):
-            raise TypeError("values must be a list of ints")
+            raise TypeError(MUST_BE_INT_ERR)
         elif len(values) != degree:
-            raise ValueError("values must have length degree")
+            raise ValueError(DEGREE_MISMATCH_ERR)
         self.values = values
 
     def __str__(self):
@@ -270,23 +245,15 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
         if other == 0:
             return self
         elif not isinstance(other, PolynomialNTTRepresentation):
-            raise NotImplementedError(
-                f"Addition for {type(self)} and {type(other)} not implemented"
-            )
+            raise NotImplementedError(TYPE_MISMATCH_ERR)
         elif self.modulus != other.modulus:
-            raise NotImplementedError("Cannot add polynomials with different moduli")
-        elif self.degree != other.degree:
-            raise NotImplementedError("Cannot add polynomials with different degrees")
+            raise NotImplementedError(MODULUS_MISMATCH_ERR)
+        elif self.degree != other.degree or len(self.values) != self.degree or other.degree != len(other.values):
+            raise NotImplementedError(DEGREE_MISMATCH_ERR)
+        elif self.root_order != other.root_order or self.root_order != 2*self.degree or other.root_order != 2*other.degree:
+            raise NotImplementedError(ROOT_ORDER_MISMATCH_ERR)
         elif self.root != other.root:
-            raise NotImplementedError(
-                "Cannot add polynomials with different roots of unity"
-            )
-        elif self.root_order != other.root_order:
-            raise NotImplementedError(
-                "Cannot add polynomials with different root orders"
-            )
-        elif len(self.values) != len(other.values):
-            raise NotImplementedError("Cannot add polynomials with different lengths")
+            raise NotImplementedError(ROOT_MISMATCH_ERR)
         return PolynomialNTTRepresentation(
             modulus=self.modulus,
             degree=self.degree,
@@ -326,29 +293,15 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
         elif other == 1:
             return self
         elif not isinstance(other, PolynomialNTTRepresentation):
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} and {type(other)} not implemented"
-            )
+            raise NotImplementedError(TYPE_MISMATCH_ERR)
         elif self.modulus != other.modulus:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different moduli not implemented"
-            )
-        elif self.degree != other.degree:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different degrees not implemented"
-            )
+            raise NotImplementedError(MODULUS_MISMATCH_ERR)
+        elif self.degree != other.degree or len(self.values) != len(other.values) or len(self.values) != self.degree or len(other.values) != other.degree:
+            raise NotImplementedError(DEGREE_MISMATCH_ERR)
+        elif self.root_order != other.root_order or self.root_order != 2*self.degree or other.root_order != 2*other.degree:
+            raise NotImplementedError(ROOT_ORDER_MISMATCH_ERR)
         elif self.root != other.root:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different roots of unity not implemented"
-            )
-        elif self.root_order != other.root_order:
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with difference orders of root of unity not implemented"
-            )
-        elif len(self.values) != len(other.values):
-            raise NotImplementedError(
-                f"Multiplication for {type(self)} with different lengths not implemented"
-            )
+            raise NotImplementedError(ROOT_MISMATCH_ERR)
         return PolynomialNTTRepresentation(
             modulus=self.modulus,
             degree=self.degree,
@@ -357,9 +310,7 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             root_order=self.root_order,
             values=[
                 cent(val=x * y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
-                for x, y in zip(self.values, other.values)
-            ],
-        )
+                for x, y in zip(self.values, other.values)],)
 
     def __rmul__(self, other):
         return self.__mul__(other=other)
@@ -397,5 +348,5 @@ def transform(
             coefficients=x_vals,
         )
     else:
-        raise NotImplementedError(f"Transform for {type(x)} not implemented")
+        raise NotImplementedError(NTT_NOT_IMPLEMENTED_ERR)
 

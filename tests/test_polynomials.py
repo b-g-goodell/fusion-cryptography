@@ -176,7 +176,7 @@ def test_monomial_products():
 def test_poly_init():
     with pytest.raises(ValueError):
         Poly(modulus=1, degree=1, root_order=1, root=1, inv_root=1, coefficients=1)
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         Poly(modulus=5, degree=2, root_order=1, root=1, inv_root=1, coefficients=1)
     with pytest.raises(TypeError):
         Poly(
@@ -429,7 +429,7 @@ def test_poly_norm():
 def test_poly_ntt_init():
     with pytest.raises(ValueError):
         PolyNTT(modulus=2, degree=1, root_order=2, root=1, inv_root=1, values=1)
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         PolyNTT(modulus=5, degree=2, root_order=2, root=-1, inv_root=-1, values=1)
     with pytest.raises(ValueError):
         PolyNTT(
