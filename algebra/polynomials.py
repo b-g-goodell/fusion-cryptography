@@ -135,12 +135,7 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
             inv_root=self.inv_root,
             root_order=self.root_order,
             coefficients=[
-                cent(
-                    val=x + y,
-                    modulus=self.modulus,
-                    halfmod=self.halfmod,
-                    logmod=self.logmod,
-                )
+                cent(val=x + y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
                 for x, y in zip(self.coefficients, other.coefficients)
             ],
         )
@@ -195,14 +190,9 @@ class PolynomialCoefficientRepresentation(PolynomialRepresentation):
         for i, x in enumerate(self.coefficients):
             for j, y in enumerate(other.coefficients):
                 c[i + j] += x * y
-        c = [cent(
-                val=x - y,
-                modulus=self.modulus,
-                halfmod=self.halfmod,
-                logmod=self.logmod,
-            )
-            for x, y in zip(c[:self.degree], c[self.degree:])
-        ]
+        c = [cent(val=x - y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
+             for x, y in zip(c[:self.degree], c[self.degree:])
+             ]
         return PolynomialCoefficientRepresentation(
             modulus=self.modulus,
             degree=self.degree,
@@ -304,12 +294,7 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             inv_root=self.inv_root,
             root_order=self.root_order,
             values=[
-                cent(
-                    val=x + y,
-                    modulus=self.modulus,
-                    halfmod=self.halfmod,
-                    logmod=self.logmod,
-                )
+                cent(val=x + y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
                 for x, y in zip(self.values, other.values)
             ],
         )
@@ -371,12 +356,7 @@ class PolynomialNTTRepresentation(PolynomialRepresentation):
             inv_root=self.inv_root,
             root_order=self.root_order,
             values=[
-                cent(
-                    val=x * y,
-                    modulus=self.modulus,
-                    halfmod=self.halfmod,
-                    logmod=self.logmod,
-                )
+                cent(val=x * y, mod=self.modulus, halfmod=self.halfmod, logmod=self.logmod)
                 for x, y in zip(self.values, other.values)
             ],
         )
@@ -392,12 +372,8 @@ def transform(
         x_coefs: List[int] = deepcopy(x.coefficients)
         root_powers = [pow(x.root, i, x.modulus) for i in range(x.degree)]
         bit_rev_root_powers = bit_reverse_copy(val=root_powers)
-        cooley_tukey_ntt(
-            val=x_coefs,
-            modulus=x.modulus,
-            root_order=x.root_order,
-            bit_rev_root_powers=bit_rev_root_powers,
-        )
+        cooley_tukey_ntt(val=x_coefs, mod=x.modulus, halfmod=x.halfmod, logmod=x.logmod, deg=x.degree, root=x.root,
+                         brv_powers=bit_rev_root_powers)
         return PolynomialNTTRepresentation(
             modulus=x.modulus,
             degree=x.degree,
@@ -410,12 +386,8 @@ def transform(
         x_vals: List[int] = deepcopy(x.values)
         inv_root_powers = [pow(x.inv_root, i, x.modulus) for i in range(x.degree)]
         bit_rev_inv_root_powers = bit_reverse_copy(val=inv_root_powers)
-        gentleman_sande_intt(
-            val=x_vals,
-            modulus=x.modulus,
-            root_order=x.root_order,
-            bit_rev_inv_root_powers=bit_rev_inv_root_powers,
-        )
+        gentleman_sande_intt(val=x_vals, mod=x.modulus, halfmod=x.halfmod, logmod=x.logmod, deg=x.degree, inv_root=x.inv_root,
+                             brv_powers=bit_rev_inv_root_powers)
         return PolynomialCoefficientRepresentation(
             modulus=x.modulus,
             degree=x.degree,
