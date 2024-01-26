@@ -1,111 +1,137 @@
 import pytest
 from copy import deepcopy
 from random import randrange
-from typing import List
+from typing import List, Tuple
 from algebra.ntt import _find_prou, _ntt_poly_mult, _bit_reverse_copy
 from algebra.polynomials import (
-    PolynomialCoefficientRepresentation as Poly,
-    PolynomialNTTRepresentation as PolyNTT,
-    transform,
+    _PolynomialCoefficientRepresentation as Poly,
+    _PolynomialNTTRepresentation as PolyNTT,
 )
 from algebra.sampling import sample_polynomial_coefficient_representation, sample_polynomial_ntt_representation
 from test_ntt import SAMPLE_SIZE, PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE
 
+ARITHMETIC_TEST_CASES = [
+    t + tuple([
+        _find_prou(mod=t[1], deg=t[0]),
+    ])
+    for t in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE]
 
-def test_arithmetic():
-    for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
-        root_powers: List[int] = [pow(base=root, exp=i, mod=q) for i in range(d)]
-        brv_powers: List[int] = _bit_reverse_copy(root_powers)
-        inv_root: int = pow(root, q - 2, q)
-        inv_root_powers: List[int] = [pow(base=inv_root, exp=i, mod=q) for i in range(d)]
-        brv_inv_root_powers: List[int] = _bit_reverse_copy(inv_root_powers)
-        halfmod = q//2
-        logmod = q.bit_length()
-        for _ in range(SAMPLE_SIZE):
-            a_coefs: List[int] = [randrange(q) for _ in range(d)]
-            b_coefs: List[int] = [randrange(q) for _ in range(d)]
-            a: Poly = Poly(
-                modulus=q,
-                degree=d,
-                root_order=2 * d,
-                root=root,
-                inv_root=inv_root,
-                coefficients=a_coefs,
-            )
-            b: Poly = Poly(
-                modulus=q,
-                degree=d,
-                root_order=2 * d,
-                root=root,
-                inv_root=inv_root,
-                coefficients=b_coefs,
-            )
-            expected_c_coefs: List[int] = [0 for _ in range(2 * d)]
-            # foil
-            for i, next_a in enumerate(a_coefs):
-                for j, next_b in enumerate(b_coefs):
-                    expected_c_coefs[i + j] = (
-                        expected_c_coefs[i + j] + next_a * next_b
-                    ) % q
-            expected_c_coefs = [
-                (x - y) % q for x, y in zip(expected_c_coefs[:d], expected_c_coefs[d:])
-            ]
-            expected_c: Poly = Poly(
-                modulus=q,
-                degree=d,
-                root_order=2 * d,
-                root=root,
-                inv_root=inv_root,
-                coefficients=expected_c_coefs,
-            )
+ARITHMETIC_TEST_CASES = [
+    t + tuple([
+        [pow(base=t[-1], exp=i, mod=t[1]) for i in range(t[0])],
+    ])
+    for t in ARITHMETIC_TEST_CASES
+]
+ARITHMETIC_TEST_CASES = [
+    t + tuple([
+        _bit_reverse_copy(t[-1]),
+        pow(t[-2], t[1] - 2, t[1]),
+    ])
+    for t in ARITHMETIC_TEST_CASES
+]
+ARITHMETIC_TEST_CASES = [
+    t + tuple([
+        [pow(base=t[-1], exp=i, mod=t[1]) for i in range(t[0])]
+    ])
+    for t in ARITHMETIC_TEST_CASES
+]
+ARITHMETIC_TEST_CASES = [
+    t + tuple([
+        _bit_reverse_copy(t[-1]),
+        t[1] // 2,
+        t[1].bit_length(),
+    ])
+    for t in ARITHMETIC_TEST_CASES
+]
 
-            observed_c: Poly = a * b
-            assert len(observed_c.coefficients) == len(expected_c.coefficients)
-            assert all(
-                (x - y) % q == 0
-                for x, y in zip(observed_c.coefficients, expected_c.coefficients)
-            )
 
-            another_observed_c: List[int] = _ntt_poly_mult(f=deepcopy(a_coefs), g=deepcopy(b_coefs), mod=q, halfmod=halfmod,
-                                                           logmod=logmod, deg=d, root_order=2 * d, root=root, inv_root=inv_root,
-                                                           brv_powers=brv_powers, brv_inv_root_powers=brv_inv_root_powers)
-            right: List[int] = [-y for y in another_observed_c[d:]]
-            another_observed_c = another_observed_c[:d]
-            while len(right) >= d:
-                next_right = right[:d]
-                right = [-y for y in right[d:]]
-                for i, y in enumerate(next_right):
-                    another_observed_c[i] = (another_observed_c[i] + y) % q
-            for i, y in enumerate(right):
-                another_observed_c[i] = (another_observed_c[i] + y) % q
-            assert len(another_observed_c) == len(expected_c.coefficients)
-            assert all(
-                (x - y) % q == 0
-                for x, y in zip(observed_c.coefficients, another_observed_c)
-            )
-            assert all(
-                (x - y) % q == 0
-                for x, y in zip(expected_c.coefficients, observed_c.coefficients)
-            )
-            try:
-                assert expected_c == observed_c
-            except AssertionError:
-                print()
-                assert expected_c == observed_c
-            # Since expected_c and observed_c are equivalent, we only need one in the rest of this test.
+@pytest.mark.parametrize("deg,mod,root,root_powers,brv_powers,inv_root,inv_root_powers,brv_inv_root_powers,halfmod,logmod", ARITHMETIC_TEST_CASES)
+def test_arithmetic(deg,mod,root,root_powers,brv_powers,inv_root,inv_root_powers,brv_inv_root_powers,halfmod,logmod):
+    for _ in range(SAMPLE_SIZE):
+        a_coefs: List[int] = [randrange(mod) for _ in range(deg)]
+        b_coefs: List[int] = [randrange(mod) for _ in range(deg)]
+        a: Poly = Poly(
+            modulus=mod,
+            degree=deg,
+            root=root,
+            inv_root=inv_root,
+            values=a_coefs,
+        )
+        b: Poly = Poly(
+            modulus=mod,
+            degree=deg,
+            root=root,
+            inv_root=inv_root,
+            values=b_coefs,
+        )
+        expected_c_coefs: List[int] = [0 for _ in range(2 * deg)]
+        # foil
+        for i, next_a in enumerate(a_coefs):
+            for j, next_b in enumerate(b_coefs):
+                expected_c_coefs[i + j] = (
+                    expected_c_coefs[i + j] + next_a * next_b
+                ) % mod
+        expected_c_coefs = [
+            (x - y) % mod for x, y in zip(expected_c_coefs[:deg], expected_c_coefs[deg:])
+        ]
+        expected_c: Poly = Poly(
+            modulus=mod,
+            degree=deg,
+            root=root,
+            inv_root=inv_root,
+            values=expected_c_coefs,
+        )
 
-            a_hat: PolyNTT = transform(x=a)
-            b_hat: PolyNTT = transform(x=b)
-            c_hat: PolyNTT = transform(x=observed_c)
-            a_hat_times_b_hat: PolyNTT = a_hat * b_hat
-            inv_a_hat: Poly = transform(x=a_hat)
-            inv_b_hat: Poly = transform(x=b_hat)
-            inv_a_hat_times_b_hat: Poly = transform(x=a_hat_times_b_hat)
-            inv_c_hat: Poly = transform(c_hat)
-            assert inv_a_hat == a
-            assert inv_b_hat == b
-            assert inv_a_hat_times_b_hat == observed_c == inv_c_hat
+        observed_c: Poly = a * b
+        assert len(observed_c.values) == len(expected_c.values)
+        assert all(
+            (x - y) % mod == 0
+            for x, y in zip(observed_c.values, expected_c.values)
+        )
+        assert expected_c == observed_c
+
+        another_observed_c_coefs: List[int] = _ntt_poly_mult(f=deepcopy(a_coefs), g=deepcopy(b_coefs), mod=mod, deg=deg,
+                                                             root=root, inv_root=inv_root, brv_powers=brv_powers,
+                                                             brv_inv_root_powers=brv_inv_root_powers)
+        right: List[int] = [-y for y in another_observed_c_coefs[deg:]]
+        another_observed_c_coefs = another_observed_c_coefs[:deg]
+        while len(right) >= deg:
+            next_right = right[:deg]
+            right = [-y for y in right[deg:]]
+            for i, y in enumerate(next_right):
+                another_observed_c_coefs[i] = (another_observed_c_coefs[i] + y) % mod
+        for i, y in enumerate(right):
+            another_observed_c_coefs[i] = (another_observed_c_coefs[i] + y) % mod
+        assert len(another_observed_c_coefs) == len(expected_c.values)
+        assert all(
+            (x - y) % mod == 0
+            for x, y in zip(observed_c.values, another_observed_c_coefs))
+        assert all(
+            (x - y) % mod == 0
+            for x, y in zip(expected_c.values, observed_c.values))
+        another_observed_c: Poly = Poly(modulus=mod, degree=deg, root=root, inv_root=inv_root, values=another_observed_c_coefs)
+        assert another_observed_c == observed_c
+        # Since expected_c and observed_c are equivalent, we only need one in the rest of this test.
+
+        a_hat: PolyNTT = a.transform()
+        b_hat: PolyNTT = b.transform()
+        c_hat: PolyNTT = observed_c.transform()
+        a_hat_times_b_hat: PolyNTT = a_hat * b_hat
+        assert c_hat == a_hat_times_b_hat
+
+        transformed_c_hat: Poly = c_hat.transform()
+        transformed_a_hat_times_b_hat: Poly = a_hat_times_b_hat.transform()
+        assert observed_c == transformed_c_hat
+        assert observed_c == transformed_a_hat_times_b_hat
+
+        inv_a_hat: Poly = a_hat.transform()
+        inv_b_hat: Poly = b_hat.transform()
+        inv_a_hat_times_b_hat: Poly = a_hat_times_b_hat.transform()
+        inv_c_hat: Poly = c_hat.transform()
+        assert inv_a_hat == a
+        assert inv_b_hat == b
+        assert inv_a_hat_times_b_hat == observed_c
+        assert inv_a_hat_times_b_hat == inv_c_hat
 
 
 def test_monomial_products():
@@ -119,11 +145,9 @@ def test_monomial_products():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
 
             b_coef: int = randrange(1, q)
             b_index: int = randrange(d)
@@ -131,11 +155,9 @@ def test_monomial_products():
             b: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=b_coefs,
-            )
+                values=b_coefs)
 
             expected_c_coefs: List[int] = [0 for _ in range(d)]
             expected_c_coefs[(a_index + b_index) % d] = ((a_coef * b_coef) % q) * (
@@ -144,49 +166,42 @@ def test_monomial_products():
             expected_c: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=expected_c_coefs,
-            )
+                values=expected_c_coefs)
             observed_c: Poly = a * b
             try:
                 assert expected_c == observed_c
             except AssertionError:
-                print()
                 expected_c: Poly = Poly(
                     modulus=q,
                     degree=d,
-                    root_order=2 * d,
                     root=root,
                     inv_root=inv_root,
-                    coefficients=expected_c_coefs,
+                    values=expected_c_coefs,
                 )
                 observed_c: Poly = a * b
                 assert expected_c == observed_c
 
-            a_hat: PolyNTT = transform(x=a)
-            b_hat: PolyNTT = transform(x=b)
+            a_hat: PolyNTT = a.transform()
+            b_hat: PolyNTT = b.transform()
             a_hat_times_b_hat: PolyNTT = a_hat * b_hat
-            inv_a_hat_times_b_hat: Poly = transform(x=a_hat_times_b_hat)
+            inv_a_hat_times_b_hat: Poly = a_hat_times_b_hat.transform()
             assert inv_a_hat_times_b_hat == observed_c
 
 
-# Test PolynomialCoefficientRepresentation.__init__
 def test_poly_init():
-    with pytest.raises(ValueError):
-        Poly(modulus=1, degree=1, root_order=1, root=1, inv_root=1, coefficients=1)
-    with pytest.raises(ValueError):
-        Poly(modulus=5, degree=2, root_order=1, root=1, inv_root=1, coefficients=1)
+    with pytest.raises(TypeError):
+        Poly(modulus=1, degree=1, root=1, inv_root=1, values=1)
+    with pytest.raises(TypeError):
+        Poly(modulus=5, degree=2, root=1, inv_root=1, values=1)
     with pytest.raises(TypeError):
         Poly(
             modulus=1.0,
             degree=1,
-            root_order=1,
             root=1,
             inv_root=1,
-            coefficients=["hello world"],
-        )
+            values=["hello world"])
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
@@ -195,17 +210,15 @@ def test_poly_init():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             assert a.modulus == q
             assert a.degree == d
             assert a.root_order == 2 * d
             assert a.root == root
             assert a.inv_root == inv_root
-            assert a.coefficients == a_coefs
+            assert a.values == a_coefs
 
 
 def test_poly_str():
@@ -217,18 +230,14 @@ def test_poly_str():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             assert (
                 str(a)
-                == f"PolynomialCoefficientRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, root_order={2 * d}, coefficients={a_coefs})"
-            )
+                == f"PolynomialCoefficientRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_coefs})")
 
 
-# Test PolynomialCoefficientRepresentation.__repr__
 def test_poly_repr():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -238,18 +247,14 @@ def test_poly_repr():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             assert (
                 repr(a)
-                == f"PolynomialCoefficientRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, root_order={2 * d}, coefficients={a_coefs})"
-            )
+                == f"PolynomialCoefficientRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_coefs})")
 
 
-# Test PolynomialCoefficientRepresentation.__eq__
 def test_poly_eq():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -259,29 +264,24 @@ def test_poly_eq():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             b: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a.coefficients,
-            )
+                values=a.values)
             assert a == a
             assert a == b
-            assert len(a.coefficients) == len(b.coefficients)
-            for i, next_coef in enumerate(a.coefficients):
-                a.coefficients[i] = next_coef + randrange(2**10) * q
-                b.coefficients[i] = next_coef + randrange(2**10) * q
+            assert len(a.values) == len(b.values)
+            for i, next_coef in enumerate(a.values):
+                a.values[i] = next_coef + randrange(2**10) * q
+                b.values[i] = next_coef + randrange(2**10) * q
             assert a == b
 
 
-# Test PolynomialCoefficientRepresentation.__add__
 def test_poly_add():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -292,19 +292,15 @@ def test_poly_add():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             b: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=b_coefs,
-            )
+                values=b_coefs)
             c: Poly = a + b
             assert c.modulus == q
             assert c.degree == d
@@ -312,35 +308,28 @@ def test_poly_add():
             assert c.root == root
             assert c.inv_root == inv_root
             for i in range(d):
-                assert (
-                    c.coefficients[i] - (a.coefficients[i] + b.coefficients[i])
-                ) % q == 0
+                assert (c.values[i] - (a.values[i] + b.values[i])) % q == 0
 
 
-# Test PolynomialCoefficientRepresentation.__sub__
 def test_poly_sub():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
-        inv_root: int = pow(root, q - 2, q)
+        inv_root: int = pow(base=root, exp=q-2, mod=q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
             b_coefs: List[int] = [randrange(1, q) for _ in range(d)]
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             b: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=b_coefs,
-            )
+                values=b_coefs)
             c: Poly = a - b
             assert c.modulus == q
             assert c.degree == d
@@ -348,12 +337,9 @@ def test_poly_sub():
             assert c.root == root
             assert c.inv_root == inv_root
             for i in range(d):
-                assert (
-                    c.coefficients[i] - (a.coefficients[i] - b.coefficients[i])
-                ) % q == 0
+                assert (c.values[i] - (a.values[i] - b.values[i])) % q == 0
 
 
-# Test PolynomialCoefficientRepresentation.__mul__
 def test_poly_mul():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -374,32 +360,25 @@ def test_poly_mul():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             b: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=b_coefs,
-            )
+                values=b_coefs)
             expected_c: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=expected_c_coefs,
-            )
+                values=expected_c_coefs)
             observed_c: Poly = a * b
             assert expected_c == observed_c
 
 
-# Test PolynomialCoefficientRepresentation.norm
 def test_poly_norm():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -409,61 +388,45 @@ def test_poly_norm():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
-            expected_infinity_norm: int = max(abs(x) for x in a.coefficients)
-            expected_one_norm: int = sum(abs(x) for x in a.coefficients)
-            expected_two_norm: float = sum(abs(x) ** 2 for x in a.coefficients) ** 0.5
-            observed_infinity_norm: int = a.norm(p="infty")
-            assert expected_infinity_norm == observed_infinity_norm
-            with pytest.raises(NotImplementedError):
-                observed_one_norm = a.norm(p=1)
-            with pytest.raises(NotImplementedError):
-                observed_two_norm = a.norm(p=2)
+                values=a_coefs)
+            expected_infinity_norm: int = max(abs(x) for x in a.values)
+            observed_infinity_norm_and_weight: Tuple[int, int] = a.norm_weight
+            assert expected_infinity_norm, expected_infinity_norm == observed_infinity_norm_and_weight
 
 
-# Test PolynomialNTTRepresentation.__init__
 def test_poly_ntt_init():
-    with pytest.raises(ValueError):
-        PolyNTT(modulus=2, degree=1, root_order=2, root=1, inv_root=1, values=1)
-    with pytest.raises(ValueError):
-        PolyNTT(modulus=5, degree=2, root_order=2, root=-1, inv_root=-1, values=1)
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
+        PolyNTT(modulus=2, degree=1, root=1, inv_root=1, values=1)
+    with pytest.raises(TypeError):
+        PolyNTT(modulus=5, degree=2, root=-1, inv_root=-1, values=1)
+    with pytest.raises(TypeError):
         PolyNTT(
             modulus=5,
             degree=2,
-            root_order=2,
             root=1,
             inv_root=1,
-            values=["hello world"],
-        )
+            values=["hello world"])
     root = _find_prou(mod=5, deg=2)
     inv_root = pow(root, 5 - 2, 5)
     with pytest.raises(TypeError):
         PolyNTT(
             modulus=5,
             degree=2,
-            root_order=2*2,
             root=root,
             inv_root=inv_root,
-            values=["hello world"],
-        )
+            values=["hello world"])
     with pytest.raises(ValueError):
         PolyNTT(
-            modulus=5, degree=2, root_order=2, root=root, inv_root=inv_root, values=[1]
-        )
+            modulus=5, degree=2, root=root, inv_root=inv_root, values=[1])
     with pytest.raises(ValueError):
         PolyNTT(
             modulus=5,
             degree=2,
-            root_order=2,
             root=root,
             inv_root=inv_root,
-            values=[1, 2, 3],
-        )
+            values=[1, 2, 3])
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
@@ -472,28 +435,23 @@ def test_poly_ntt_init():
             a: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             b: Poly = Poly(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                coefficients=a.coefficients,
-            )
+                values=a.values)
             assert a == b
             assert a == a
-            for i, next_coef in enumerate(a.coefficients):
-                a.coefficients[i] = next_coef + randrange(2) * q
-                b.coefficients[i] = next_coef + randrange(2) * q
+            for i, next_coef in enumerate(a.values):
+                a.values[i] = next_coef + randrange(2) * q
+                b.values[i] = next_coef + randrange(2) * q
             assert a == b
 
 
-# Test PolynomialNTTRepresentation.__str__
 def test_poly_ntt_str():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -503,19 +461,15 @@ def test_poly_ntt_str():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             assert (
                 str(a_hat)
                 == repr(a_hat)
-                == f"PolynomialNTTRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, root_order={2 * d}, values={a_vals})"
-            )
+                == f"PolynomialNTTRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_vals})")
 
 
-# Test PolynomialNTTRepresentation.__eq__
 def test_poly_ntt_eq():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -525,19 +479,15 @@ def test_poly_ntt_eq():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_hat.values,
-            )
+                values=a_hat.values)
             assert a_hat == b_hat
             assert a_hat == a_hat
             for i, next_val in enumerate(a_hat.values):
@@ -546,7 +496,6 @@ def test_poly_ntt_eq():
             assert a_hat == b_hat
 
 
-# Test PolynomialNTTRepresentation.__add__
 def test_poly_ntt_add():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -556,27 +505,20 @@ def test_poly_ntt_add():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_vals: List[int] = [randrange(1, q) for _ in range(d)]
             b_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=b_vals,
-            )
+                values=b_vals)
             c_hat: PolyNTT = a_hat + b_hat
-            assert all(
-                [
-                    (z - (x + y)) % q == 0
-                    for x, y, z in zip(a_vals, b_vals, c_hat.values)
-                ]
-            )
+            assert all([
+                (z - (x + y)) % q == 0 for x, y, z in zip(a_vals, b_vals, c_hat.values)
+            ])
             with pytest.raises(NotImplementedError):
                 c_hat: PolyNTT = a_hat + b_vals
             with pytest.raises(NotImplementedError):
@@ -593,7 +535,6 @@ def test_poly_ntt_add():
                 c_hat: PolyNTT = a_hat + q
 
 
-# Test PolynomialNTTRepresentation.__sub__
 def test_poly_ntt_sub():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -603,20 +544,16 @@ def test_poly_ntt_sub():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_vals: List[int] = [randrange(1, q) for _ in range(d)]
             b_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=b_vals,
-            )
+                values=b_vals)
             c_hat: PolyNTT = a_hat - b_hat
             for i in range(d):
                 assert (c_hat.values[i] - (a_vals[i] - b_vals[i])) % q == 0
@@ -639,7 +576,6 @@ def test_poly_ntt_sub():
                 c_hat: PolyNTT = a_hat - q
 
 
-# Test PolynomialNTTRepresentation.__neg__
 def test_poly_ntt_neg():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -649,17 +585,14 @@ def test_poly_ntt_neg():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_hat: PolyNTT = -a_hat
             for i in range(d):
                 assert (b_hat.values[i] + a_vals[i]) % q == 0
 
 
-# Test PolynomialNTTRepresentation.__radd__
 def test_poly_ntt_radd():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -669,20 +602,16 @@ def test_poly_ntt_radd():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_vals: List[int] = [randrange(1, q) for _ in range(d)]
             b_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=b_vals,
-            )
+                values=b_vals)
             c_hat: PolyNTT = b_hat + a_hat
             for i in range(d):
                 assert (c_hat.values[i] - (a_vals[i] + b_vals[i])) % q == 0
@@ -702,7 +631,6 @@ def test_poly_ntt_radd():
                 c_hat: PolyNTT = b_hat + q
 
 
-# Test PolynomialNTTRepresentation.__mul__
 def test_poly_ntt_mul():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -712,20 +640,16 @@ def test_poly_ntt_mul():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_vals: List[int] = [randrange(1, q) for _ in range(d)]
             b_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=b_vals,
-            )
+                values=b_vals)
             c_hat: PolyNTT = a_hat * b_hat
             for i in range(d):
                 assert (c_hat.values[i] - (a_vals[i] * b_vals[i])) % q == 0
@@ -744,7 +668,6 @@ def test_poly_ntt_mul():
             assert c_hat == b_hat
 
 
-# Test PolynomialNTTRepresentation.__rmul__
 def test_poly_ntt_rmul():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
@@ -754,20 +677,16 @@ def test_poly_ntt_rmul():
             a_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=a_vals,
-            )
+                values=a_vals)
             b_vals: List[int] = [randrange(1, q) for _ in range(d)]
             b_hat: PolyNTT = PolyNTT(
                 modulus=q,
                 degree=d,
-                root_order=2 * d,
                 root=root,
                 inv_root=inv_root,
-                values=b_vals,
-            )
+                values=b_vals)
             c_hat: PolyNTT = b_hat * a_hat
             for i in range(d):
                 assert (c_hat.values[i] - (a_vals[i] * b_vals[i])) % q == 0
@@ -786,10 +705,7 @@ def test_poly_ntt_rmul():
             assert c_hat == a_hat
 
 
-# Test transform
 def test_transform_2d():
-    with pytest.raises(NotImplementedError):
-        transform(x="hello, world!")
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
         root: int = _find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
@@ -800,10 +716,8 @@ def test_transform_2d():
                 degree=d,
                 root=root,
                 inv_root=inv_root,
-                root_order=2 * d,
-                coefficients=a_coefs,
-            )
-            a_hat: PolyNTT = transform(x=a)
+                values=a_coefs)
+            a_hat: PolyNTT = a.transform()
 
             b_coefs: List[int] = [randrange(1, q) for _ in range(d)]
             b: Poly = Poly(
@@ -811,10 +725,8 @@ def test_transform_2d():
                 degree=d,
                 root=root,
                 inv_root=inv_root,
-                root_order=2 * d,
-                coefficients=b_coefs,
-            )
-            b_hat: PolyNTT = transform(x=b)
+                values=b_coefs)
+            b_hat: PolyNTT = b.transform()
 
             c_coefs: List[int] = [0 for _ in range(2 * d)]
             for i in range(len(a_coefs)):
@@ -826,14 +738,12 @@ def test_transform_2d():
                 degree=d,
                 root=root,
                 inv_root=inv_root,
-                root_order=2 * d,
-                coefficients=c_coefs,
-            )
+                values=c_coefs)
 
-            a_ntt: PolyNTT = transform(x=a)
-            b_ntt: PolyNTT = transform(x=b)
+            a_ntt: PolyNTT = a.transform()
+            b_ntt: PolyNTT = b.transform()
             a_ntt_times_b_ntt: PolyNTT = a_ntt * b_ntt
-            inv_a_ntt_times_b_ntt: Poly = transform(x=a_ntt_times_b_ntt)
+            inv_a_ntt_times_b_ntt: Poly = a_ntt_times_b_ntt.transform()
             assert inv_a_ntt_times_b_ntt == c
 
 
@@ -849,9 +759,7 @@ def test_comprehensive():
                 degree=d,
                 root=root,
                 inv_root=inv_root,
-                root_order=2 * d,
-                coefficients=a_coefs,
-            )
+                values=a_coefs)
             # Random polynomial b
             b_coefs: List[int] = [randrange(1, q) for _ in range(d)]
             b: Poly = Poly(
@@ -859,25 +767,22 @@ def test_comprehensive():
                 degree=d,
                 root=root,
                 inv_root=inv_root,
-                root_order=2 * d,
-                coefficients=b_coefs,
-            )
+                values=b_coefs)
 
             # Transformed a and b
-            a_hat: PolyNTT = transform(x=a)
-            b_hat: PolyNTT = transform(x=b)
+            a_hat: PolyNTT = a.transform()
+            b_hat: PolyNTT = b.transform()
 
             # Product of transforms
             a_hat_times_b_hat: PolyNTT = a_hat * b_hat
 
             # Invert
-            inv_a_hat_times_b_hat: Poly = transform(x=a_hat_times_b_hat)
+            inv_a_hat_times_b_hat: Poly = a_hat_times_b_hat.transform()
 
             # Check
             assert inv_a_hat_times_b_hat == a * b
 
 
-# test sample_polynomial_coefficient_representation
 def test_sample_polynomial_coefficient_representation():
     modulus: int = 65537
     degree: int = 1024
@@ -896,6 +801,7 @@ def test_sample_polynomial_coefficient_representation():
     assert f.root == root
     assert f.inv_root == inv_root
     assert f.root_order == root_order
-    assert len(f.coefficients) == degree
-    assert f.norm(p="infty") <= norm_bound
-    assert f.weight() <= weight_bound
+    assert len(f.values) == degree
+    norm, weight = f.norm_weight
+    assert norm <= norm_bound
+    assert weight <= weight_bound

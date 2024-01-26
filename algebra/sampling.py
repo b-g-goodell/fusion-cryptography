@@ -1,9 +1,9 @@
 from secrets import randbits, randbelow
 from typing import List
-from algebra.polynomials import PolynomialCoefficientRepresentation, PolynomialNTTRepresentation
+from algebra.polynomials import _PolynomialCoefficientRepresentation, _PolynomialNTTRepresentation
 from algebra.matrices import GeneralMatrix
 
-def sample_polynomial_coefficient_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int, norm_bound: int, weight_bound: int) -> PolynomialCoefficientRepresentation:
+def sample_polynomial_coefficient_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int, norm_bound: int, weight_bound: int) -> _PolynomialCoefficientRepresentation:
     # Exactly weight non-zero coefficients
     num_coefs_to_gen: int = max(0, min(degree, weight_bound))
     bound: int = max(0, min(modulus // 2, norm_bound))
@@ -16,7 +16,7 @@ def sample_polynomial_coefficient_representation(modulus: int, degree: int, root
         for i in range(degree - 1, 0, -1):
             j = randbelow(i + 1)
             coefficients[i], coefficients[j] = coefficients[j], coefficients[i]
-    return PolynomialCoefficientRepresentation(
+    return _PolynomialCoefficientRepresentation(
         modulus=modulus,
         degree=degree,
         root=root,
@@ -26,9 +26,9 @@ def sample_polynomial_coefficient_representation(modulus: int, degree: int, root
     )
 
 
-def sample_polynomial_ntt_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int) -> PolynomialNTTRepresentation:
+def sample_polynomial_ntt_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int) -> _PolynomialNTTRepresentation:
     values: List[int] = [randbelow(modulus) - (modulus // 2) for _ in range(degree)]
-    return PolynomialNTTRepresentation(
+    return _PolynomialNTTRepresentation(
         modulus=modulus,
         degree=degree,
         root=root,
