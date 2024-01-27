@@ -3,8 +3,8 @@ from typing import List, Tuple
 from secrets import randbelow
 from algebra.ntt import (
     _is_odd_prime,
-    _is_pow_two_geq_two,
-    _has_prou,
+    _is_pos_pow_two,
+    _is_ntt_friendly,
     _bit_reverse_len_to_idxs,
     _bit_reverse_copy,
     _brv_root_and_inv_root_powers,
@@ -29,10 +29,10 @@ IS_ODD_PRIME_TEST_DATA = [
     (1, False),
     (2, False),
 ]
-IS_POW_TWO_GEQ_TWO_TEST_DATA = [
+IS_POS_POW_TWO_TEST_CASES = [
     (3, False),
     (2, True),
-    (1, False),
+    (1, True),
     (4, True),
     (8, True),
     (7, False)
@@ -139,12 +139,12 @@ def test_is_odd_prime(number, expected_result):
 
 @pytest.mark.parametrize('modulus, degree, expected_result', HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA)
 def test_has_prou(modulus, degree, expected_result):
-    assert _has_prou(mod=modulus, deg=degree) == expected_result
+    assert _is_ntt_friendly(mod=modulus, deg=degree) == expected_result
 
 
-@pytest.mark.parametrize('number, expected_result', IS_POW_TWO_GEQ_TWO_TEST_DATA)
-def test_is_pow_two_geq_two(number, expected_result):
-    assert _is_pow_two_geq_two(val=number) == expected_result
+@pytest.mark.parametrize('number, expected_result', IS_POS_POW_TWO_TEST_CASES)
+def test_is_pos_pow_two(number, expected_result):
+    assert _is_pos_pow_two(val=number) == expected_result
 
 
 @pytest.mark.parametrize('list_len, expected_result, observed_result', BIT_REVERSE_COPY_TEST_DATA)
@@ -195,7 +195,7 @@ def test_cooley_tukey(modulus, deg, root, root_inv, root_powers, bit_rev_root_po
 
 @pytest.mark.parametrize('deg, mod', PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE)
 def test_random_poly_mul(deg, mod):
-    assert _has_prou(mod=mod, deg=deg)
+    assert _is_ntt_friendly(mod=mod, deg=deg)
     root = _find_prou(mod=mod, deg=deg)
     inv_root = pow(base=root, exp=mod - 2, mod=mod)
     root_powers = [pow(base=root, exp=i, mod=mod) for i in range(2 * deg + 1)]

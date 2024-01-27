@@ -1,6 +1,6 @@
 from typing import List as _List
 from copy import deepcopy as _deepcopy
-from algebra.ntt import (_find_prou, _bit_reverse_copy, _has_prou, _is_prou,
+from algebra.ntt import (_find_prou, _bit_reverse_copy, _is_ntt_friendly, _is_prou,
                          _is_root_inverse, _cent, _brv_root_and_inv_root_powers, _cooley_tukey_ntt,
                          _gentleman_sande_intt, _ntt_poly_mult)
 
@@ -15,9 +15,9 @@ def find_prou(mod: int, deg: int) -> int:
     return _find_prou(mod=mod, deg=deg)
 
 
-def has_prou(mod: int, deg: int) -> bool:
+def is_ntt_friendly(mod: int, deg: int) -> bool:
     """ Check if modulus has a primitive root of unity of degree 2*degree"""
-    return _has_prou(mod=mod, deg=deg)
+    return _is_ntt_friendly(mod=mod, deg=deg)
 
 
 def is_prou(root: int, mod: int, deg: int) -> bool:
