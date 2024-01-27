@@ -16,6 +16,7 @@ _MUST_BE_CORRECT_ROOT_ERR: str = "must be correct root"
 _MUST_BE_CORRECT_INVERSE_ROOT_ERR: str = "must be correct inverse root"
 _DEGREE_MISMATCH_ERR: str = "degree mismatch"
 _MUST_CONSTRUCT_BRV_POWERS_CORRECTLY_ERR: str = "must construct bit reverse powers correctly"
+_INVALID_NTT_INPUT_ERR: str = "invalid ntt input"
 
 # For polynomials.py
 _TYPE_MISMATCH_ERR: str = "type mismatch"

@@ -22,6 +22,8 @@ class _PolynomialRepresentation:
             raise TypeError(_MUST_BE_INT_ERR)
         elif not isinstance(values, list):
             raise TypeError(_MUST_BE_LIST_ERR)
+        elif len(values) != degree:
+            raise TypeError(_DEGREE_MISMATCH_ERR)
         elif not has_prou(mod=modulus, deg=degree):
             raise ValueError(_MUST_HAVE_PROU_ERR)
         elif not is_prou(root=root, mod=modulus, deg=degree):
@@ -59,13 +61,13 @@ class _PolynomialRepresentation:
         if other == 0:
             return self
         elif not isinstance(other, _PolynomialRepresentation):
-            raise NotImplementedError(_TYPE_MISMATCH_ERR)
+            raise TypeError(_TYPE_MISMATCH_ERR)
         elif self.modulus != other.modulus:
-            raise NotImplementedError(_MODULUS_MISMATCH_ERR)
+            raise TypeError(_MODULUS_MISMATCH_ERR)
         elif self.degree != other.degree:
-            raise NotImplementedError(_DEGREE_MISMATCH_ERR)
+            raise TypeError(_DEGREE_MISMATCH_ERR)
         elif self.root != other.root:
-            raise NotImplementedError(_ROOT_MISMATCH_ERR)
+            raise TypeError(_ROOT_MISMATCH_ERR)
         return _PolynomialCoefficientRepresentation(
             modulus=self.modulus,
             degree=self.degree,
@@ -75,8 +77,11 @@ class _PolynomialRepresentation:
                 cent(val=x + y, mod=self.modulus)
                 for x, y in zip(self.values, other.values)])
 
+    def __radd__(self, other):
+        return self + other
+
     def __neg__(self):
-        return _PolynomialCoefficientRepresentation(
+        return _PolynomialRepresentation(
             modulus=self.modulus,
             degree=self.degree,
             root=self.root,
@@ -88,6 +93,9 @@ class _PolynomialRepresentation:
 
     def __mul__(self, other):
         raise NotImplementedError(_MUL_BASE_NOT_IMPLEMENTED_ERR)
+
+    def __rmul__(self, other):
+        return self * other
 
     def transform(self):
         raise NotImplementedError(_NTT_NOT_IMPLEMENTED_ERR)
@@ -117,13 +125,13 @@ class _PolynomialRepresentation:
 
 def _is_mul_valid(left: _PolynomialRepresentation, right: _PolynomialRepresentation):
     if not isinstance(left, type(right)) or not isinstance(right, type(left)):
-        raise NotImplementedError(_TYPE_MISMATCH_ERR)
+        raise TypeError(_TYPE_MISMATCH_ERR)
     elif left.modulus != right.modulus:
-        raise NotImplementedError(_MODULUS_MISMATCH_ERR)
+        raise TypeError(_MODULUS_MISMATCH_ERR)
     elif left.degree != right.degree or len(left.values) != len(right.values) or len(left.values) != left.degree:
-        raise NotImplementedError(_DEGREE_MISMATCH_ERR)
+        raise TypeError(_DEGREE_MISMATCH_ERR)
     elif left.root != right.root:
-        raise NotImplementedError(_ROOT_MISMATCH_ERR)
+        raise TypeError(_ROOT_MISMATCH_ERR)
 
 
 class _PolynomialCoefficientRepresentation(_PolynomialRepresentation):
@@ -151,9 +159,19 @@ class _PolynomialCoefficientRepresentation(_PolynomialRepresentation):
         return super().__eq__(other=other)
 
     def __add__(self, other):
-        if not isinstance(other, _PolynomialCoefficientRepresentation):
-            raise NotImplementedError(_TYPE_MISMATCH_ERR)
+        if other == 0:
+            return self
+        elif not isinstance(other, _PolynomialCoefficientRepresentation):
+            raise TypeError(_TYPE_MISMATCH_ERR)
         return super().__add__(other=other)
+
+    def __neg__(self):
+        return _PolynomialCoefficientRepresentation(
+            modulus=self.modulus,
+            degree=self.degree,
+            root=self.root,
+            inv_root=self.inv_root,
+            values=[-(x % self.modulus) for x in self.values])
 
     def __mul__(self, other):
         if other == 0:
@@ -172,6 +190,9 @@ class _PolynomialCoefficientRepresentation(_PolynomialRepresentation):
             root=self.root,
             inv_root=self.inv_root,
             values=values)
+
+    def __rmul__(self, other):
+        return self * other
 
     def transform(self) -> '_PolynomialNTTRepresentation':
         return _PolynomialNTTRepresentation(
@@ -211,9 +232,19 @@ class _PolynomialNTTRepresentation(_PolynomialRepresentation):
         return super().__eq__(other=other)
 
     def __add__(self, other):
-        if not isinstance(other, _PolynomialCoefficientRepresentation):
-            raise NotImplementedError(_TYPE_MISMATCH_ERR)
+        if other == 0:
+            return self
+        elif not isinstance(other, _PolynomialNTTRepresentation):
+            raise TypeError(_TYPE_MISMATCH_ERR)
         return super().__add__(other=other)
+
+    def __neg__(self):
+        return _PolynomialNTTRepresentation(
+            modulus=self.modulus,
+            degree=self.degree,
+            root=self.root,
+            inv_root=self.inv_root,
+            values=[-(x % self.modulus) for x in self.values])
 
     def __mul__(self, other):
         if other == 0:
@@ -226,8 +257,7 @@ class _PolynomialNTTRepresentation(_PolynomialRepresentation):
             degree=self.degree,
             root=self.root,
             inv_root=self.inv_root,
-            values=[cent(val=x * y, mod=self.modulus) for x, y in zip(self.values, other.values)]
-        )
+            values=[cent(val=x * y, mod=self.modulus) for x, y in zip(self.values, other.values)])
 
     def transform(self) -> _PolynomialCoefficientRepresentation:
         return _PolynomialCoefficientRepresentation(
