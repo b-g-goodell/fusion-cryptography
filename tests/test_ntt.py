@@ -191,7 +191,8 @@ def test_cent(val, modulus, expected_value):
     'modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, val, expected_val',
     COOLEY_TUKEY_NTT_TEST_DATA)
 def test_cooley_tukey(modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, val, expected_val):
-    observed_val = _cooley_tukey_ntt(val=deepcopy(val), mod=modulus, deg=deg, brv_powers=bit_rev_root_powers)
+    dcval = deepcopy(val)
+    observed_val = _cooley_tukey_ntt(val=dcval, mod=modulus, deg=deg, brv_powers=bit_rev_root_powers)
     assert all((x - y) % modulus == 0 for x, y in zip(observed_val, expected_val))
 
 

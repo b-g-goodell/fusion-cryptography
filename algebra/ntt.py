@@ -18,6 +18,7 @@ _PROU_CACHE: _Dict[_Tuple[int, int, int], bool] = {}
 _FIND_PROU_CACHE: _Dict[_Tuple[int, int], _Union[int, None]] = {}
 _REV_IDX_CACHE = {}
 _MOD_HALFMOD_LOGMOD_CACHE: _Dict[int, _Tuple[int, int, int]] = {}
+_DERIVED_PARAMS_CACHE: _Dict[_Tuple[int, int, bool], _List[int]] = {}
 
 
 # Functions
@@ -121,28 +122,28 @@ def _is_root_inverse(root: int, inv_root: int, mod: int) -> bool:
     return isinstance(root, int) and isinstance(inv_root, int) and isinstance(mod, int) and (root * inv_root) % mod == 1
 
 
-def _derived_params(val: _List[int], mod: int, inv_flag: bool) -> _Tuple[int, _List[int]]:
+def _derived_params(deg: int, mod: int, inv_flag: bool) -> _List[int]:
     """ Derive root order from list length, derive root or inv_root from modulus and root order and inv_flag,
     compute root powers, then bit reverse."""
-    if not isinstance(val, list):
-        raise TypeError(_MUST_BE_LIST_ERR)
-    elif not _is_odd_prime(val=mod):
-        raise ValueError(_MUST_BE_ODD_PRIME_ERR)
-    elif not _has_prou(mod=mod, deg=len(val)):
-        raise ValueError(_MUST_HAVE_PROU_ERR)
-    deg: int = len(val)
-    root: int = _find_prou(mod=mod, deg=deg)
-    if inv_flag:
-        root = pow(base=root, exp=mod-2, mod=mod)
-    powers: _List[int] = [pow(base=root, exp=i, mod=mod) for i in range(deg)]
-    brv_powers: _List[int] = _bit_reverse_copy(powers)
-    return deg, brv_powers
+    if (deg, mod, inv_flag) not in _DERIVED_PARAMS_CACHE:
+        if not isinstance(deg, int) or not isinstance(mod, int):
+            raise TypeError(_MUST_BE_INT_ERR)
+        elif not _is_odd_prime(val=mod):
+            raise ValueError(_MUST_BE_ODD_PRIME_ERR)
+        elif not _has_prou(mod=mod, deg=deg):
+            raise ValueError(_MUST_HAVE_PROU_ERR)
+        root: int = _find_prou(mod=mod, deg=deg)
+        if inv_flag:
+            root = pow(base=root, exp=mod-2, mod=mod)
+        powers: _List[int] = [pow(base=root, exp=i, mod=mod) for i in range(deg)]
+        _DERIVED_PARAMS_CACHE[(deg, mod, inv_flag)] = _bit_reverse_copy(powers)
+    return _DERIVED_PARAMS_CACHE[(deg, mod, inv_flag)]
 
 
 def _is_ntt_valid(val: _List[int], mod: int, inv_flag: bool) -> bool:
-    deg: int
+    deg: int = len(val)
     brv_powers: _List[int]
-    deg, brv_powers = _derived_params(val=val, mod=mod, inv_flag=inv_flag)
+    brv_powers = _derived_params(deg=deg, mod=mod, inv_flag=inv_flag)
     val_is_list: bool = isinstance(val, list)
     mod_is_int: bool = isinstance(mod, int)
     inv_flag_is_bool: bool = isinstance(inv_flag, bool)
