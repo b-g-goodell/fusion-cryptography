@@ -18,7 +18,7 @@ _PROU_CACHE: _Dict[_Tuple[int, int, int], bool] = {}
 _FIND_PROU_CACHE: _Dict[_Tuple[int, int], _Union[int, None]] = {}
 _REV_IDX_CACHE = {}
 _MOD_HALFMOD_LOGMOD_CACHE: _Dict[int, _Tuple[int, int, int]] = {}
-_DERIVED_PARAMS_CACHE: _Dict[_Tuple[int, int, bool], _List[int]] = {}
+_BRV_ROOTS_AND_INV_ROOTS_CACHE: _Dict[_Tuple[int, int], _Tuple[_List[int], _List[int]]] = {}
 
 
 # Functions
@@ -55,6 +55,49 @@ def _is_pow_two_geq_two(val: int) -> bool:
     return _POW_TWO_CACHE[val]
 
 
+def _is_rou(root: int, mod: int, deg: int) -> bool:
+    """
+    Check if val is a root of unity of order 2*deg modulo modulus.
+    """
+    if (root, mod, deg) not in _ROU_CACHE:
+        _ROU_CACHE[(root, mod, deg)] = isinstance(root, int) and isinstance(mod, int) and isinstance(deg, int) and mod >= 3 and deg >= 1 and pow(base=root, exp=2 * deg, mod=mod) == 1
+    return _ROU_CACHE[(root, mod, deg)]
+
+
+def _is_prou(root: int, mod: int, deg: int) -> bool:
+    """
+    Check if val is a primitive root of order 2*deg modulo modulus.
+    """
+    if (root, mod, deg) not in _PROU_CACHE:
+        is_prim: bool = _is_rou(root=root, mod=mod, deg=deg)
+        is_prim = is_prim and all(pow(base=root, exp=i, mod=mod) != 1 for i in range(1, 2*deg))
+        _PROU_CACHE[(root, mod, deg)] = is_prim
+    return _PROU_CACHE[(root, mod, deg)]
+
+
+def _is_root_inverse(root: int, inv_root: int, mod: int) -> bool:
+    return isinstance(root, int) and isinstance(inv_root, int) and isinstance(mod, int) and (root * inv_root) % mod == 1
+
+
+def _find_prou(mod: int, deg: int) -> int:
+    """
+    Find a primitive root of order 2*deg modulo modulus. Naive loop that first checks 2, then 3, then 4...
+    """
+    if not isinstance(mod, int) or not isinstance(deg, int):
+        raise TypeError(_MUST_BE_INT_ERR)
+    elif not _has_prou(mod=mod, deg=deg):
+        raise ValueError(_MUST_HAVE_PROU_ERR)
+    elif (mod, deg) not in _FIND_PROU_CACHE:
+        _FIND_PROU_CACHE[(mod, deg)] = None
+        r: int = 2
+        while r < mod and not _is_prou(root=r, mod=mod, deg=deg):
+            r += 1
+        if r is None or not _is_prou(root=r, mod=mod, deg=deg):
+            raise RuntimeError(_NO_PROU_FOUND_ERR)
+        _FIND_PROU_CACHE[(mod, deg)] = r
+    return _FIND_PROU_CACHE[(mod, deg)]
+
+
 def _bit_reverse_len_to_idxs(val: int) -> _List[int]:
     """
     Compute bit-reversed indices of a list of length val.
@@ -79,53 +122,10 @@ def _bit_reverse_copy(val: list) -> list:
     return [val[i] for i in _bit_reverse_len_to_idxs(val=n)]
 
 
-def _is_rou(root: int, mod: int, deg: int) -> bool:
-    """
-    Check if val is a root of unity of order 2*deg modulo modulus.
-    """
-    if (root, mod, deg) not in _ROU_CACHE:
-        _ROU_CACHE[(root, mod, deg)] = isinstance(root, int) and isinstance(mod, int) and isinstance(deg, int) and mod >= 3 and deg >= 1 and pow(base=root, exp=2 * deg, mod=mod) == 1
-    return _ROU_CACHE[(root, mod, deg)]
-
-
-def _is_prou(root: int, mod: int, deg: int) -> bool:
-    """
-    Check if val is a primitive root of order 2*deg modulo modulus.
-    """
-    if (root, mod, deg) not in _PROU_CACHE:
-        is_prim: bool = _is_rou(root=root, mod=mod, deg=deg)
-        is_prim = is_prim and all(pow(base=root, exp=i, mod=mod) != 1 for i in range(1, 2*deg))
-        _PROU_CACHE[(root, mod, deg)] = is_prim
-    return _PROU_CACHE[(root, mod, deg)]
-
-
-def _find_prou(mod: int, deg: int) -> int:
-    """
-    Find a primitive root of order 2*deg modulo modulus. Naive loop that first checks 2, then 3, then 4...
-    """
-    if not isinstance(mod, int) or not isinstance(deg, int):
-        raise TypeError(_MUST_BE_INT_ERR)
-    elif not _has_prou(mod=mod, deg=deg):
-        raise ValueError(_MUST_HAVE_PROU_ERR)
-    elif (mod, deg) not in _FIND_PROU_CACHE:
-        _FIND_PROU_CACHE[(mod, deg)] = None
-        r: int = 2
-        while r < mod and not _is_prou(root=r, mod=mod, deg=deg):
-            r += 1
-        if r is None or not _is_prou(root=r, mod=mod, deg=deg):
-            raise RuntimeError(_NO_PROU_FOUND_ERR)
-        _FIND_PROU_CACHE[(mod, deg)] = r
-    return _FIND_PROU_CACHE[(mod, deg)]
-
-
-def _is_root_inverse(root: int, inv_root: int, mod: int) -> bool:
-    return isinstance(root, int) and isinstance(inv_root, int) and isinstance(mod, int) and (root * inv_root) % mod == 1
-
-
-def _derived_params(deg: int, mod: int, inv_flag: bool) -> _List[int]:
+def _brv_root_and_inv_root_powers(deg: int, mod: int) -> _Tuple[_List[int], _List[int]]:
     """ Derive root order from list length, derive root or inv_root from modulus and root order and inv_flag,
     compute root powers, then bit reverse."""
-    if (deg, mod, inv_flag) not in _DERIVED_PARAMS_CACHE:
+    if (deg, mod) not in _BRV_ROOTS_AND_INV_ROOTS_CACHE:
         if not isinstance(deg, int) or not isinstance(mod, int):
             raise TypeError(_MUST_BE_INT_ERR)
         elif not _is_odd_prime(val=mod):
@@ -133,31 +133,13 @@ def _derived_params(deg: int, mod: int, inv_flag: bool) -> _List[int]:
         elif not _has_prou(mod=mod, deg=deg):
             raise ValueError(_MUST_HAVE_PROU_ERR)
         root: int = _find_prou(mod=mod, deg=deg)
-        if inv_flag:
-            root = pow(base=root, exp=mod-2, mod=mod)
+        inv_root: int = pow(base=root, exp=mod-2, mod=mod)
         powers: _List[int] = [pow(base=root, exp=i, mod=mod) for i in range(deg)]
-        _DERIVED_PARAMS_CACHE[(deg, mod, inv_flag)] = _bit_reverse_copy(powers)
-    return _DERIVED_PARAMS_CACHE[(deg, mod, inv_flag)]
-
-
-def _is_ntt_valid(val: _List[int], mod: int, inv_flag: bool) -> bool:
-    deg: int = len(val)
-    brv_powers: _List[int]
-    brv_powers = _derived_params(deg=deg, mod=mod, inv_flag=inv_flag)
-    val_is_list: bool = isinstance(val, list)
-    mod_is_int: bool = isinstance(mod, int)
-    inv_flag_is_bool: bool = isinstance(inv_flag, bool)
-    brv_powers_is_list: bool = isinstance(brv_powers, list)
-    val_and_brv_powers_are_ints: bool = all(isinstance(i, int) for i in val + brv_powers)
-    mod_is_odd_prime: bool = _is_odd_prime(val=mod)
-    mod_has_prou: bool = _has_prou(mod=mod, deg=deg)
-    deg_is_pow_two: bool = _is_pow_two_geq_two(val=deg)
-    powers: _List[int] = _bit_reverse_copy(val=brv_powers)
-    root: int = powers[1]
-    inv_root: int = pow(base=root, exp=mod-2, mod=mod)
-    root_is_prou: bool = _is_prou(root=root, mod=mod, deg=deg)
-    has_correct_root_inverse: bool = _is_root_inverse(root=root, inv_root=inv_root, mod=mod)
-    return all([val_is_list, mod_is_int, inv_flag_is_bool, brv_powers_is_list, val_and_brv_powers_are_ints, mod_is_odd_prime, mod_has_prou, deg_is_pow_two, root_is_prou, has_correct_root_inverse,])
+        inv_powers: _List[int] = [pow(base=inv_root, exp=i, mod=mod) for i in range(deg)]
+        brv_powers: _List[int] = _bit_reverse_copy(val=powers)
+        brv_inv_powers: _List[int] = _bit_reverse_copy(val=inv_powers)
+        _BRV_ROOTS_AND_INV_ROOTS_CACHE[(deg, mod)] = (brv_powers, brv_inv_powers)
+    return _BRV_ROOTS_AND_INV_ROOTS_CACHE[(deg, mod)]
 
 
 def _cent(val: int, mod: int) -> int:
@@ -174,7 +156,30 @@ def _cent(val: int, mod: int) -> int:
     return z
 
 
-def _cooley_tukey_ntt(val: _List[int], mod: int, deg: int, brv_powers: _List[int]) -> _List[int]:
+def _is_ntt_valid(val: _List[int], mod: int, inv_flag: bool) -> bool:
+    deg: int = len(val)
+    brv_powers: _List[int]
+    brv_powers, brv_inv_powers = _brv_root_and_inv_root_powers(deg=deg, mod=mod)
+    val_is_list: bool = isinstance(val, list)
+    mod_is_int: bool = isinstance(mod, int)
+    inv_flag_is_bool: bool = isinstance(inv_flag, bool)
+    brv_powers_is_list: bool = isinstance(brv_powers, list)
+    brv_inv_powers_is_list: bool = isinstance(brv_inv_powers, list)
+    entries_in_val_are_ints: bool = all(isinstance(i, int) for i in val)
+    entries_in_brv_powers_are_ints: bool = all(isinstance(i, int) for i in brv_powers)
+    entries_in_brv_inv_powers_are_ints: bool = all(isinstance(i, int) for i in brv_inv_powers)
+    mod_is_odd_prime: bool = _is_odd_prime(val=mod)
+    mod_has_prou: bool = _has_prou(mod=mod, deg=deg)
+    deg_is_pow_two: bool = _is_pow_two_geq_two(val=deg)
+    powers: _List[int] = _bit_reverse_copy(val=brv_powers)
+    root: int = powers[1]
+    inv_root: int = pow(base=root, exp=mod-2, mod=mod)
+    root_is_prou: bool = _is_prou(root=root, mod=mod, deg=deg)
+    has_correct_root_inverse: bool = _is_root_inverse(root=root, inv_root=inv_root, mod=mod)
+    return all([val_is_list, mod_is_int, inv_flag_is_bool, brv_powers_is_list, brv_inv_powers_is_list, entries_in_val_are_ints, entries_in_brv_powers_are_ints, entries_in_brv_inv_powers_are_ints, mod_is_odd_prime, mod_has_prou, deg_is_pow_two, root_is_prou, has_correct_root_inverse,])
+
+
+def _cooley_tukey_ntt(val: _List[int], mod: int, brv_powers: _List[int]) -> _List[int]:
     """
     Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
     (modulus-1) % (2*deg) == 0, a root_order == 2*deg, and a list of integers, root_powers, which are powers of a primitive
@@ -205,7 +210,7 @@ def _cooley_tukey_ntt(val: _List[int], mod: int, deg: int, brv_powers: _List[int
     return val
 
 
-def _gentleman_sande_intt(val: _List[int], mod: int, deg: int, brv_powers: _List[int]) -> _List[int]:
+def _gentleman_sande_intt(val: _List[int], mod: int, brv_powers: _List[int]) -> _List[int]:
     """
     Input val, a list of n := len(val) integers in usual ordering, a modulus that is a prime such that
     (modulus-1) % (2*n) == 0, a root_order == 2*deg, and a list of integers, inv_root_powers, which are powers of the
@@ -242,10 +247,10 @@ def _gentleman_sande_intt(val: _List[int], mod: int, deg: int, brv_powers: _List
     return val
 
 
-def _is_ntt_poly_mult_valid(f: _List[int], g: _List[int], deg: int, mod: int, brv_powers: _List[int]):
+def _is_ntt_poly_mult_valid(f: _List[int], g: _List[int], mod: int, brv_powers: _List[int]):
+    deg: int = len(f)
     f_is_list = isinstance(f, list)
     g_is_list = isinstance(g, list)
-    deg_is_int = isinstance(deg, int)
     mod_is_int = isinstance(mod, int)
     brv_powers_is_list = isinstance(brv_powers, list)
     f_and_g_are_ints = all(isinstance(i, int) for i in f+g)
@@ -258,20 +263,21 @@ def _is_ntt_poly_mult_valid(f: _List[int], g: _List[int], deg: int, mod: int, br
     have_correct_inverse_root = _is_root_inverse(root=root, inv_root=inv_root, mod=mod)
     ntt_is_valid_for_f = _is_ntt_valid(val=f, mod=mod, inv_flag=False)
     ntt_is_valid_for_g = _is_ntt_valid(val=g, mod=mod, inv_flag=False)
-    return all([f_is_list, g_is_list, deg_is_int, mod_is_int, brv_powers_is_list, f_and_g_are_ints, f_and_g_have_len_deg, have_prou, have_correct_root, have_correct_inverse_root, ntt_is_valid_for_f, ntt_is_valid_for_g])
+    return all([f_is_list, g_is_list, mod_is_int, brv_powers_is_list, f_and_g_are_ints, f_and_g_have_len_deg, have_prou, have_correct_root, have_correct_inverse_root, ntt_is_valid_for_f, ntt_is_valid_for_g])
 
 
-def _ntt_poly_mult(f: _List[int], g: _List[int], deg: int, mod: int, root: int, inv_root: int, brv_powers: _List[int], brv_inv_root_powers: _List[int]) -> _List[int]:
+def _ntt_poly_mult(f: _List[int], g: _List[int], mod: int, brv_powers: _List[int], brv_inv_root_powers: _List[int]) -> _List[int]:
     """
     Multiply two coefficient representations of polynomials by first computing their NTTs
     and then their Hadamard product before inverting the NTT.
     """
-    if not _is_ntt_poly_mult_valid(f=f, g=g, deg=deg, mod=mod, brv_powers=brv_powers):
+    deg: int = len(f)
+    if not _is_ntt_poly_mult_valid(f=f, g=g, mod=mod, brv_powers=brv_powers):
         raise TypeError(_INVALID_NTT_INPUT_ERR)
-    _cooley_tukey_ntt(val=f, mod=mod, deg=deg, brv_powers=brv_powers)
-    _cooley_tukey_ntt(val=g, mod=mod, deg=deg, brv_powers=brv_powers)
+    _cooley_tukey_ntt(val=f, mod=mod, brv_powers=brv_powers)
+    _cooley_tukey_ntt(val=g, mod=mod, brv_powers=brv_powers)
     fg: _List[int] = [_cent(val=x * y, mod=mod) for x, y in zip(f, g)]
-    _gentleman_sande_intt(val=fg, mod=mod, deg=deg, brv_powers=brv_inv_root_powers)
-    _gentleman_sande_intt(val=f, mod=mod, deg=deg, brv_powers=brv_inv_root_powers)
-    _gentleman_sande_intt(val=g, mod=mod, deg=deg, brv_powers=brv_inv_root_powers)
+    _gentleman_sande_intt(val=fg, mod=mod, brv_powers=brv_inv_root_powers)
+    _gentleman_sande_intt(val=f, mod=mod, brv_powers=brv_inv_root_powers)
+    _gentleman_sande_intt(val=g, mod=mod, brv_powers=brv_inv_root_powers)
     return fg

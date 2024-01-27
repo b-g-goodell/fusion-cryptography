@@ -2,17 +2,17 @@ import pytest
 from copy import deepcopy
 from random import randrange
 from typing import List, Tuple
-from algebra.ntt import _find_prou, _ntt_poly_mult, _bit_reverse_copy
+# from algebra.ntt import find_prou, _ntt_poly_mult, _bit_reverse_copy
+from api.ntt import ntt, find_prou, bit_reverse_copy, ntt_poly_mult
 from algebra.polynomials import (
     _PolynomialCoefficientRepresentation as Poly,
     _PolynomialNTTRepresentation as PolyNTT,
 )
-# from algebra.sampling import sample_polynomial_coefficient_representation, sample_polynomial_ntt_representation
 from test_ntt import SAMPLE_SIZE, PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE
 
 ARITHMETIC_TEST_CASES = [
     t + tuple([
-        _find_prou(mod=t[1], deg=t[0]),
+        find_prou(mod=t[1], deg=t[0]),
     ])
     for t in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE]
 
@@ -24,7 +24,7 @@ ARITHMETIC_TEST_CASES = [
 ]
 ARITHMETIC_TEST_CASES = [
     t + tuple([
-        _bit_reverse_copy(t[-1]),
+        bit_reverse_copy(t[-1]),
         pow(t[-2], t[1] - 2, t[1]),
     ])
     for t in ARITHMETIC_TEST_CASES
@@ -37,7 +37,7 @@ ARITHMETIC_TEST_CASES = [
 ]
 ARITHMETIC_TEST_CASES = [
     t + tuple([
-        _bit_reverse_copy(t[-1]),
+        bit_reverse_copy(t[-1]),
         t[1] // 2,
         t[1].bit_length(),
     ])
@@ -91,9 +91,7 @@ def test_arithmetic(deg,mod,root,root_powers,brv_powers,inv_root,inv_root_powers
         assert expected_c == observed_c
         dc_a_coefs: List[int] = deepcopy(a_coefs)
         dc_b_coefs: List[int] = deepcopy(b_coefs)
-        another_observed_c_coefs: List[int] = _ntt_poly_mult(f=dc_a_coefs, g=dc_b_coefs, deg=deg, mod=mod, root=root,
-                                                             inv_root=inv_root, brv_powers=brv_powers,
-                                                             brv_inv_root_powers=brv_inv_root_powers)
+        another_observed_c_coefs: List[int] = ntt_poly_mult(f=dc_a_coefs, g=dc_b_coefs, mod=mod)
         right: List[int] = [-y for y in another_observed_c_coefs[deg:]]
         another_observed_c_coefs = another_observed_c_coefs[:deg]
         while len(right) >= deg:
@@ -137,7 +135,7 @@ def test_arithmetic(deg,mod,root,root_powers,brv_powers,inv_root,inv_root_powers
 
 def test_monomial_products():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coef: int = randrange(1, q)
@@ -204,7 +202,7 @@ def test_poly_init():
             inv_root=1,
             values=["hello world"])
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(q) for _ in range(d)]
@@ -224,7 +222,7 @@ def test_poly_init():
 
 def test_poly_str():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(q) for _ in range(d)]
@@ -241,7 +239,7 @@ def test_poly_str():
 
 def test_poly_repr():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(q) for _ in range(d)]
@@ -258,7 +256,7 @@ def test_poly_repr():
 
 def test_poly_eq():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(q) for _ in range(d)]
@@ -285,7 +283,7 @@ def test_poly_eq():
 
 def test_poly_add():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -314,7 +312,7 @@ def test_poly_add():
 
 def test_poly_sub():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(base=root, exp=q-2, mod=q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -343,7 +341,7 @@ def test_poly_sub():
 
 def test_poly_mul():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -382,7 +380,7 @@ def test_poly_mul():
 
 def test_poly_norm():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -409,7 +407,7 @@ def test_poly_ntt_init():
             root=1,
             inv_root=1,
             values=["hello world"])
-    root = _find_prou(mod=5, deg=2)
+    root = find_prou(mod=5, deg=2)
     inv_root = pow(root, 5 - 2, 5)
     with pytest.raises(TypeError):
         PolyNTT(
@@ -428,7 +426,7 @@ def test_poly_ntt_init():
             inv_root=inv_root,
             values=[1, 2, 3])
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -454,7 +452,7 @@ def test_poly_ntt_init():
 
 def test_poly_ntt_str():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -472,7 +470,7 @@ def test_poly_ntt_str():
 
 def test_poly_ntt_eq():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -498,7 +496,7 @@ def test_poly_ntt_eq():
 
 def test_poly_ntt_add():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -539,7 +537,7 @@ def test_poly_ntt_add():
 
 def test_poly_ntt_sub():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -578,7 +576,7 @@ def test_poly_ntt_sub():
 
 def test_poly_ntt_neg():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -595,7 +593,7 @@ def test_poly_ntt_neg():
 
 def test_poly_ntt_radd():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -631,7 +629,7 @@ def test_poly_ntt_radd():
 
 def test_poly_ntt_mul():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -668,7 +666,7 @@ def test_poly_ntt_mul():
 
 def test_poly_ntt_rmul():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_vals: List[int] = [randrange(1, q) for _ in range(d)]
@@ -705,7 +703,7 @@ def test_poly_ntt_rmul():
 
 def test_transform_2d():
     for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-        root: int = _find_prou(mod=q, deg=d)
+        root: int = find_prou(mod=q, deg=d)
         inv_root: int = pow(root, q - 2, q)
         for _ in range(SAMPLE_SIZE):
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -748,7 +746,7 @@ def test_transform_2d():
 def test_comprehensive():
     for _ in range(SAMPLE_SIZE):
         for d, q in PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE:
-            root: int = _find_prou(mod=q, deg=d)
+            root: int = find_prou(mod=q, deg=d)
             inv_root: int = pow(root, q - 2, q)
             # Random polynomial a
             a_coefs: List[int] = [randrange(1, q) for _ in range(d)]
@@ -785,7 +783,7 @@ def test_comprehensive():
 #     modulus: int = 65537
 #     degree: int = 1024
 #     root_order: int = 2 * degree
-#     root: int = _find_prou(mod=modulus, deg=degree)
+#     root: int = find_prou(mod=modulus, deg=degree)
 #     inv_root: int = pow(root, modulus - 2, modulus)
 #     norm_bound: int = 1000
 #     weight_bound: int = 100
