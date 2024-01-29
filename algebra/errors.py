@@ -30,3 +30,8 @@ _MUL_BASE_NOT_IMPLEMENTED_ERR: str = "multiplication of base class not implement
 
 # For polynomials.py
 _INVALID_REP_TYPE: str = "invalid representation type"
+
+# For matrices.py
+_MUST_BE_NONEMPTY_ERR: str = "must be nonempty"
+_DIMENSION_MISMATCH_ERR: str = "dimension mismatch"
+_COEFS_NORM_WEIGHT_METHOD_MISSING_ERR: str = "matrix elements must have a coefs_norm_weight method"

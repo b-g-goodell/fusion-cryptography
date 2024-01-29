@@ -1,7 +1,7 @@
 from secrets import randbits, randbelow
 from typing import List
 from algebra.polynomials import _PolynomialCoefficientRepresentation, _PolynomialNTTRepresentation
-from algebra.matrices import GeneralMatrix
+from algebra.matrices import _GeneralMatrix
 
 def sample_polynomial_coefficient_representation(modulus: int, degree: int, root: int, inv_root: int, root_order: int, norm_bound: int, weight_bound: int) -> _PolynomialCoefficientRepresentation:
     # Exactly weight non-zero coefficients

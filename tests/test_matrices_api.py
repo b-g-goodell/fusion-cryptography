@@ -1,7 +1,7 @@
 import pytest
 from random import randrange
 from typing import List
-from algebra.matrices import _is_algebraic_class, _GeneralMatrix
+from api.matrices import Matrix, is_algebraic_class
 from api.ntt import find_prou
 from api.polynomials import Polynomial as Poly
 from copy import deepcopy
@@ -15,8 +15,8 @@ SAMPLE_SIZE: int = 2 ** 10
 
 
 def test_is_algebraic_class():
-    assert not _is_algebraic_class(cls="hello world".__class__())
-    assert _is_algebraic_class(Poly)
+    assert not is_algebraic_class(cls="hello world".__class__())
+    assert is_algebraic_class(Poly)
 
 
 def test_general_matrix():
@@ -108,13 +108,13 @@ def test_general_matrix():
             representation="coefficient",
         )
 
-        left_matrix: _GeneralMatrix = _GeneralMatrix(
+        left_matrix: Matrix = Matrix(
             matrix=[
                 [deepcopy(a_left), deepcopy(b_left)],
                 [deepcopy(c_left), deepcopy(d_left)],
             ]
         )
-        right_matrix: _GeneralMatrix = _GeneralMatrix(
+        right_matrix: Matrix = Matrix(
             matrix=[
                 [deepcopy(a_right), deepcopy(b_right)],
                 [deepcopy(c_right), deepcopy(d_right)],
@@ -135,8 +135,18 @@ def test_general_matrix():
         assert right_matrix.matrix[1][1] == d_right
         assert right_matrix.elem_class == Poly
 
+        # Test left-matrix + right-matrix
+        expected_sum: Matrix = Matrix(
+            matrix=[
+                [a_left + a_right, b_left + b_right],
+                [c_left + c_right, d_left + d_right],
+            ]
+        )
+        observed_sum: Matrix = left_matrix + right_matrix
+        assert observed_sum == expected_sum
+
         # Test the left-matrix * right-matrix
-        expected_product: _GeneralMatrix = _GeneralMatrix(
+        expected_product: Matrix = Matrix(
             matrix=[
                 [
                     a_left * a_right + b_left * c_right,
@@ -148,5 +158,5 @@ def test_general_matrix():
                 ],
             ]
         )
-        observed_product: _GeneralMatrix = left_matrix * right_matrix
+        observed_product: Matrix = left_matrix * right_matrix
         assert observed_product == expected_product

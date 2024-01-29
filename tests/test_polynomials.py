@@ -2,10 +2,12 @@ import pytest
 from copy import deepcopy
 from random import randrange
 from typing import List, Tuple
-from api.ntt import ntt, find_prou, bit_reverse_copy, ntt_poly_mult
+from api.ntt import find_prou, bit_reverse_copy, ntt_poly_mult
 from algebra.polynomials import (
     _PolynomialCoefficientRepresentation as Poly,
     _PolynomialNTTRepresentation as PolyNTT,
+    _POLYNOMIAL_COEFFICIENT_REPRESENTATION_STR_PREFIX,
+    _POLYNOMIAL_NTT_REPRESENTATION_STR_PREFIX
 )
 from test_ntt import SAMPLE_SIZE, PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE
 
@@ -201,7 +203,7 @@ def test_poly_str():
                 values=a_coefs)
             assert (
                 str(a)
-                == f"PolynomialCoefficientRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_coefs})")
+                == _POLYNOMIAL_COEFFICIENT_REPRESENTATION_STR_PREFIX + f"(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_coefs})")
 
 
 def test_poly_repr():
@@ -215,7 +217,7 @@ def test_poly_repr():
                 values=a_coefs)
             assert (
                 repr(a)
-                == f"PolynomialCoefficientRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_coefs})")
+                == _POLYNOMIAL_COEFFICIENT_REPRESENTATION_STR_PREFIX + f"(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_coefs})")
 
 
 def test_poly_eq():
@@ -370,7 +372,7 @@ def test_poly_ntt_str():
             assert (
                 str(a_hat)
                 == repr(a_hat)
-                == f"PolynomialNTTRepresentation(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_vals})")
+                == _POLYNOMIAL_NTT_REPRESENTATION_STR_PREFIX+f"(modulus={q}, degree={d}, root={root}, inv_root={inv_root}, values={a_vals})")
 
 
 def test_poly_ntt_eq():
