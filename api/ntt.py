@@ -1,8 +1,6 @@
 from typing import List as _List
 from copy import deepcopy as _deepcopy
-from algebra.ntt import (_find_prou, _bit_reverse_copy, _is_ntt_friendly, _is_prou,
-                         _is_root_inverse, _cent, _brv_root_and_inv_root_powers, _cooley_tukey_ntt,
-                         _gentleman_sande_intt, _ntt_poly_mult)
+from algebra.ntt import _find_prou, _bit_reverse_copy, _is_ntt_friendly, _is_prou, _is_root_inverse, _cent, _brv_root_and_inv_root_powers, _cooley_tukey_ntt, _gentleman_sande_intt, _ntt_poly_mult
 
 
 def bit_reverse_copy(val: list) -> list:

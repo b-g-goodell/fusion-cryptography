@@ -522,9 +522,9 @@ def test_poly_ntt_mul():
             for i in range(d):
                 assert (c_hat.values[i] - (a_vals[i] * b_vals[i])) % q == 0
             with pytest.raises(TypeError):
-                a_hat * b_vals
-            with pytest.raises(TypeError):
                 a_vals * b_hat
+            with pytest.raises(TypeError):
+                a_hat * b_vals
 
             c_hat: PolyNTT = a_hat * 0
             assert c_hat == 0

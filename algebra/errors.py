@@ -18,7 +18,7 @@ _DEGREE_MISMATCH_ERR: str = "degree mismatch"
 _MUST_CONSTRUCT_BRV_POWERS_CORRECTLY_ERR: str = "must construct bit reverse powers correctly"
 _INVALID_NTT_INPUT_ERR: str = "invalid ntt input"
 
-# For polynomials.py
+# For algebra/polynomials.py
 _TYPE_MISMATCH_ERR: str = "type mismatch"
 _MODULUS_MISMATCH_ERR: str = "modulus mismatch"
 _ROOT_MISMATCH_ERR: str = "root mismatch"
@@ -27,3 +27,6 @@ _NORM_NOT_IMPLEMENTED_ERR: str = "norm not implemented"
 _NTT_NOT_IMPLEMENTED_ERR: str = "ntt not implemented"
 _WEIGHT_NOT_IMPLEMENTED_ERR: str = "weight not implemented"
 _MUL_BASE_NOT_IMPLEMENTED_ERR: str = "multiplication of base class not implemented"
+
+# For polynomials.py
+_INVALID_REP_TYPE: str = "invalid representation type"

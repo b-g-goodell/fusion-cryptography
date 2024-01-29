@@ -1,8 +1,12 @@
 from typing import List as _List, Tuple as _Tuple
 from api.ntt import ntt, cent, is_ntt_friendly, find_prou
-from algebra.errors import (_MUST_BE_INT_ERR, _MUST_HAVE_PROU_ERR, _MUST_BE_LIST_ERR, _TYPE_MISMATCH_ERR,
-                            _MODULUS_MISMATCH_ERR, _NTT_NOT_IMPLEMENTED_ERR, _NORM_NOT_IMPLEMENTED_ERR,
-                            _MUL_BASE_NOT_IMPLEMENTED_ERR)
+from algebra.errors import _MUST_BE_INT_ERR, _MUST_HAVE_PROU_ERR, _MUST_BE_LIST_ERR, _TYPE_MISMATCH_ERR, _MODULUS_MISMATCH_ERR, _NTT_NOT_IMPLEMENTED_ERR, _NORM_NOT_IMPLEMENTED_ERR, _MUL_BASE_NOT_IMPLEMENTED_ERR, _INVALID_REP_TYPE
+
+
+_POLYNOMIAL_REPRESENTATION_TYPES: _List[str] = ['coefficient', 'ntt']
+_POLYNOMIAL_REPRESENTATION_STR_PREFIX: str = '_PolynomialRepresentation'
+_POLYNOMIAL_COEFFICIENT_REPRESENTATION_STR_PREFIX: str = '_PolynomialCoefficientRepresentation'
+_POLYNOMIAL_NTT_REPRESENTATION_STR_PREFIX: str = '_PolynomialNTTRepresentation'
 
 
 class _PolynomialRepresentation:
@@ -43,8 +47,12 @@ class _PolynomialRepresentation:
     def inv_root(self) -> int:
         return pow(base=self.root, exp=self.modulus-2, mod=self.modulus)
 
+    @property
+    def norm_weight(self) -> _Tuple[int, int]:
+        raise NotImplementedError(_NORM_NOT_IMPLEMENTED_ERR)
+
     def __str__(self):
-        return f"PolynomialRepresentation(modulus={self.modulus}, values={self.values})"
+        return _POLYNOMIAL_REPRESENTATION_STR_PREFIX + f"(modulus={self.modulus}, values={self.values})"
 
     def __repr__(self):
         return self.__str__()
@@ -91,13 +99,11 @@ class _PolynomialRepresentation:
     def transform(self):
         raise NotImplementedError(_NTT_NOT_IMPLEMENTED_ERR)
 
-    @property
-    def norm_weight(self) -> _Tuple[int, int]:
-        raise NotImplementedError(_NORM_NOT_IMPLEMENTED_ERR)
-
 
 def _is_mul_valid(left: _PolynomialRepresentation, right: _PolynomialRepresentation)  -> bool:
-    return isinstance(left, type(right)) and isinstance(right, type(left)) and left.modulus == right.modulus and len(left.values) == len(right.values)
+    return (type(left) is type(right)
+            and left.modulus == right.modulus
+            and len(left.values) == len(right.values))
 
 
 class _PolynomialCoefficientRepresentation(_PolynomialRepresentation):
@@ -105,7 +111,7 @@ class _PolynomialCoefficientRepresentation(_PolynomialRepresentation):
         super().__init__(modulus=modulus, values=values)
 
     def __str__(self):
-        return f"PolynomialCoefficientRepresentation(modulus={self.modulus}, degree={self.degree}, root={self.root}, inv_root={self.inv_root}, values={self.values})"
+        return _POLYNOMIAL_COEFFICIENT_REPRESENTATION_STR_PREFIX + f"(modulus={self.modulus}, degree={self.degree}, root={self.root}, inv_root={self.inv_root}, values={self.values})"
 
     def __eq__(self, other):
         if not isinstance(other, _PolynomialCoefficientRepresentation):
@@ -156,7 +162,7 @@ class _PolynomialNTTRepresentation(_PolynomialRepresentation):
         super().__init__(modulus=modulus, values=values)
 
     def __str__(self):
-        return f"PolynomialNTTRepresentation(modulus={self.modulus}, degree={self.degree}, root={self.root}, inv_root={self.inv_root}, values={self.values})"
+        return _POLYNOMIAL_NTT_REPRESENTATION_STR_PREFIX + f"(modulus={self.modulus}, degree={self.degree}, root={self.root}, inv_root={self.inv_root}, values={self.values})"
 
     def __eq__(self, other):
         if not isinstance(other, _PolynomialNTTRepresentation):
@@ -180,7 +186,8 @@ class _PolynomialNTTRepresentation(_PolynomialRepresentation):
             return 0
         elif other == 1:
             return self
-        _is_mul_valid(left=self, right=other)
+        elif not _is_mul_valid(left=self, right=other):
+            raise TypeError(_TYPE_MISMATCH_ERR)
         return _PolynomialNTTRepresentation(
             modulus=self.modulus,
             values=[cent(val=x * y, mod=self.modulus) for x, y in zip(self.values, other.values)])
@@ -199,8 +206,8 @@ class _PolynomialNTTRepresentation(_PolynomialRepresentation):
 class _PolynomialFactory:
     @staticmethod
     def create_representation(modulus: int, values: _List[int], representation_type: str):
-        if representation_type == 'coefficient':
+        if representation_type == _POLYNOMIAL_REPRESENTATION_TYPES[0]:
             return _PolynomialCoefficientRepresentation(modulus=modulus, values=values)
-        elif representation_type == 'ntt':
+        elif representation_type == _POLYNOMIAL_REPRESENTATION_TYPES[1]:
             return _PolynomialNTTRepresentation(modulus=modulus, values=values)
-        raise ValueError(f"Unknown representation type: {representation_type}")
+        raise ValueError(_INVALID_REP_TYPE + f": {representation_type}")
