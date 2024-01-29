@@ -4,7 +4,7 @@ from algebra.matrices import _GeneralMatrix, _is_algebraic_class
 
 
 MATRIX_STR_PREFIX: str = "Matrix"
-T: type = TypeVar
+T: type = TypeVar('T')
 
 
 def is_algebraic_class(cls: type):
