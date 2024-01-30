@@ -5,8 +5,8 @@ from algebra.ntt import (
     _is_odd_prime,
     _is_pos_pow_two,
     _is_ntt_friendly,
-    _bit_reverse_len_to_idxs,
-    _bit_reverse_copy,
+    _brv_indices,
+    _brv_copy,
     _brv_root_and_inv_root_powers,
     _cent,
     _is_rou,
@@ -66,8 +66,8 @@ HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA = [
     (257, 256, False)
 ]
 BIT_REVERSE_COPY_TEST_DATA = [
-    (4, [0, 2, 1, 3], _bit_reverse_len_to_idxs(val=4)),
-    (8, [0, 4, 2, 6, 1, 5, 3, 7], _bit_reverse_len_to_idxs(val=8))
+    (4, [0, 2, 1, 3], _brv_indices(val=4)),
+    (8, [0, 4, 2, 6, 1, 5, 3, 7], _brv_indices(val=8))
 ]
 CENT_TEST_DATA = [
     (0, 17, 0),
@@ -89,8 +89,8 @@ CENT_TEST_DATA = [
     (16, 17, -1),
 ]
 IS_ROOT_OF_UNITY_TEST_DATA = [
-    (3, 17, 16, True),
-    (2, 17, 16, True),
+    (3, 17, 8, True),
+    (2, 17, 8, True),
 ]
 IS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA = [
     (3, 17, 8, True),
@@ -112,9 +112,9 @@ COOLEY_TUKEY_NTT_TEST_DATA = [
 COOLEY_TUKEY_NTT_TEST_DATA = [
     t + tuple([
         pow(base=t[-1], exp=t[0]-2, mod=t[0]),
-        _bit_reverse_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[0]),
+        _brv_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[0]),
         _brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[0],
-        _bit_reverse_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[1]),
+        _brv_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[1]),
         _brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[1]
     ])
     for t in COOLEY_TUKEY_NTT_TEST_DATA
@@ -200,8 +200,8 @@ def test_random_poly_mul(deg, mod):
     inv_root = pow(base=root, exp=mod - 2, mod=mod)
     root_powers = [pow(base=root, exp=i, mod=mod) for i in range(2 * deg + 1)]
     inv_root_powers = [pow(base=inv_root, exp=i, mod=mod) for i in range(2 * deg + 1)]
-    brv_powers = _bit_reverse_copy(root_powers[:deg])
-    brv_inv_root_powers = _bit_reverse_copy(inv_root_powers[:deg])
+    brv_powers = _brv_copy(root_powers[:deg])
+    brv_inv_root_powers = _brv_copy(inv_root_powers[:deg])
 
     for _ in range(SAMPLE_SIZE):
         left_factor = [randbelow(mod) for _ in range(deg)]
@@ -226,6 +226,6 @@ def test_ct_gs_inverse(modulus, deg, root, root_inv, root_powers, bit_rev_root_p
     _cooley_tukey_ntt(val=x, mod=modulus, brv_powers=bit_rev_root_powers)
     assert x != y
     inv_root_powers = [pow(base=root_inv, exp=i, mod=modulus) for i in range(deg)]
-    brv_inv_root_powers = _bit_reverse_copy(inv_root_powers)
+    brv_inv_root_powers = _brv_copy(inv_root_powers)
     _gentleman_sande_intt(val=x, mod=modulus, brv_powers=brv_inv_root_powers)
     assert x == y

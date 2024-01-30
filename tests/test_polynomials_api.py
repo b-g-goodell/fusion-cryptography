@@ -4,11 +4,11 @@ from api.errors import _INVALID_REP_TYPE_ERR
 
 # Constants for testing
 MODULUS = 17
-COEFFICIENTS = list(range(1,9))
+COEFFICIENTS = tuple(list(range(1,9)))
 COEFFICIENTS_REP = 'coefficient'
 NTT_REP = 'ntt'
 INVALID_REP = 'invalid_rep'
-ZERO_POLYNOMIAL_VALUES = [0] * len(COEFFICIENTS)
+ZERO_POLYNOMIAL_VALUES = tuple([0] * len(COEFFICIENTS))
 
 # Mocks for external dependencies not provided
 _POLYNOMIAL_REPRESENTATION_TYPES = [COEFFICIENTS_REP, NTT_REP]
@@ -33,15 +33,15 @@ def test_initialization_with_coefficients():
     p = Polynomial(MODULUS, COEFFICIENTS, COEFFICIENTS_REP)
     c,n,w = p.coefs_norm_weight
     assert isinstance(p, Polynomial)
-    assert p.modulus == MODULUS
+    assert p.mod == MODULUS
     assert c == COEFFICIENTS  # Assuming transformation to NTT keeps values same in this example.
 
 
 def test_initialization_with_ntt():
     p = Polynomial(MODULUS, COEFFICIENTS, NTT_REP)
     assert isinstance(p, Polynomial)
-    assert p.modulus == MODULUS
-    assert p.values == COEFFICIENTS
+    assert p.mod == MODULUS
+    assert p.vals == COEFFICIENTS
 
 
 def test_initialization_with_invalid_representation():
@@ -51,7 +51,7 @@ def test_initialization_with_invalid_representation():
 
 
 def test_polynomial_properties(poly_ntt):
-    assert poly_ntt.modulus == MODULUS
+    assert poly_ntt.mod == MODULUS
     # Further properties can be tested similar to above, if relevant getters are implemented.
 
 

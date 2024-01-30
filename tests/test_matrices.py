@@ -1,7 +1,7 @@
 import pytest
 from random import randrange
 from typing import List
-from algebra.matrices import _is_algebraic_class, _GeneralMatrix
+from algebra.matrices import _is_algebraic_class, GeneralMatrix
 from api.ntt import find_prou
 from api.polynomials import Polynomial as Poly
 from copy import deepcopy
@@ -19,134 +19,90 @@ def test_is_algebraic_class():
     assert _is_algebraic_class(Poly)
 
 
-def test_general_matrix():
-    for _ in range(SAMPLE_SIZE):
-        # Generate random left-matrix [[a_left, b_left], [c_left, d_left]]
-        # and right-matrix [[a_right, b_right], [c_right, d_right]]
-        a_left_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        a_right_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        a_left_index: int = randrange(DEGREE_FOR_TESTING)
-        a_right_index: int = randrange(DEGREE_FOR_TESTING)
-        a_left_coefs: List[int] = [
-            0 if i != a_left_index else a_left_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        a_right_coefs: List[int] = [
-            0 if i != a_right_index else a_right_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        a_left: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=a_left_coefs,
-            representation="coefficient",
-        )
-        a_right: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=a_right_coefs,
-            representation="coefficient",
-        )
+# A mock class that supports the required arithmetic operations
+class MockElement:
+    def __init__(self, value):
+        self.value = value
 
-        b_left_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        b_right_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        b_left_index: int = randrange(DEGREE_FOR_TESTING)
-        b_right_index: int = randrange(DEGREE_FOR_TESTING)
-        b_left_coefs: List[int] = [
-            0 if i != b_left_index else b_left_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        b_right_coefs: List[int] = [
-            0 if i != b_right_index else b_right_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        b_left: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=b_left_coefs,
-            representation="coefficient",
-        )
-        b_right: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=b_right_coefs,
-            representation="coefficient",
-        )
+    def __add__(self, other):
+        return MockElement(self.value + other.value)
 
-        c_left_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        c_right_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        c_left_index: int = randrange(DEGREE_FOR_TESTING)
-        c_right_index: int = randrange(DEGREE_FOR_TESTING)
-        c_left_coefs: List[int] = [
-            0 if i != c_left_index else c_left_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        c_right_coefs: List[int] = [
-            0 if i != c_right_index else c_right_coef for i in range(DEGREE_FOR_TESTING)
-        ]
+    def __neg__(self):
+        return MockElement(-self.value)
 
-        c_left: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=c_left_coefs,
-            representation="coefficient",
-        )
-        c_right: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=c_right_coefs,
-            representation="coefficient",
-        )
+    def __sub__(self, other):
+        return self.__add__(other.__neg__())
 
-        d_left_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        d_right_coef: int = randrange(1, MODULUS_FOR_TESTING)
-        d_left_index: int = randrange(DEGREE_FOR_TESTING)
-        d_right_index: int = randrange(DEGREE_FOR_TESTING)
-        d_left_coefs: List[int] = [
-            0 if i != d_left_index else d_left_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        d_right_coefs: List[int] = [
-            0 if i != d_right_index else d_right_coef for i in range(DEGREE_FOR_TESTING)
-        ]
-        d_left: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=d_left_coefs,
-            representation="coefficient",
-        )
-        d_right: Poly = Poly(
-            modulus=MODULUS_FOR_TESTING,
-            values=d_right_coefs,
-            representation="coefficient",
-        )
+    def __mul__(self, other):
+        return MockElement(self.value * other.value)
 
-        left_matrix: _GeneralMatrix = _GeneralMatrix(
-            matrix=[
-                [deepcopy(a_left), deepcopy(b_left)],
-                [deepcopy(c_left), deepcopy(d_left)],
-            ]
-        )
-        right_matrix: _GeneralMatrix = _GeneralMatrix(
-            matrix=[
-                [deepcopy(a_right), deepcopy(b_right)],
-                [deepcopy(c_right), deepcopy(d_right)],
-            ]
-        )
+    def __eq__(self, other):
+        if isinstance(other, MockElement):
+            return self.value == other.value
+        return False
 
-        # Test the left-matrix
-        assert left_matrix.matrix[0][0] == a_left
-        assert left_matrix.matrix[0][1] == b_left
-        assert left_matrix.matrix[1][0] == c_left
-        assert left_matrix.matrix[1][1] == d_left
-        assert left_matrix.elem_class == Poly
+    def __repr__(self):
+        return f"MockElement({self.value})"
 
-        # Test the right-matrix
-        assert right_matrix.matrix[0][0] == a_right
-        assert right_matrix.matrix[0][1] == b_right
-        assert right_matrix.matrix[1][0] == c_right
-        assert right_matrix.matrix[1][1] == d_right
-        assert right_matrix.elem_class == Poly
 
-        # Test the left-matrix * right-matrix
-        expected_product: _GeneralMatrix = _GeneralMatrix(
-            matrix=[
-                [
-                    a_left * a_right + b_left * c_right,
-                    a_left * b_right + b_left * d_right,
-                ],
-                [
-                    c_left * a_right + d_left * c_right,
-                    c_left * b_right + d_left * d_right,
-                ],
-            ]
-        )
-        observed_product: _GeneralMatrix = left_matrix * right_matrix
-        assert observed_product == expected_product
+def test_general_matrix_addition():
+    m1 = GeneralMatrix([[MockElement(1), MockElement(2)], [MockElement(3), MockElement(4)]])
+    m2 = GeneralMatrix([[MockElement(5), MockElement(6)], [MockElement(7), MockElement(8)]])
+    result = m1 + m2
+    expected = GeneralMatrix([[MockElement(6), MockElement(8)], [MockElement(10), MockElement(12)]])
+    assert result.vals == expected.vals
+
+
+def test_general_matrix_negation():
+    m1 = GeneralMatrix([[MockElement(1), MockElement(-2)], [MockElement(-3), MockElement(4)]])
+    result = -m1
+    expected = GeneralMatrix([[MockElement(-1), MockElement(2)], [MockElement(3), MockElement(-4)]])
+    assert result.vals == expected.vals
+
+
+def test_general_matrix_subtraction():
+    m1 = GeneralMatrix([[MockElement(10), MockElement(20)], [MockElement(30), MockElement(40)]])
+    m2 = GeneralMatrix([[MockElement(1), MockElement(2)], [MockElement(3), MockElement(4)]])
+    result = m1 - m2
+    expected = GeneralMatrix([[MockElement(9), MockElement(18)], [MockElement(27), MockElement(36)]])
+    assert result.vals == expected.vals
+
+
+def test_general_matrix_multiplication():
+    m1 = GeneralMatrix([[MockElement(1), MockElement(2)], [MockElement(3), MockElement(4)]])
+    m2 = GeneralMatrix([[MockElement(5), MockElement(6)], [MockElement(7), MockElement(8)]])
+    result = m1 * m2
+    expected = GeneralMatrix([[MockElement(19), MockElement(22)], [MockElement(43), MockElement(50)]])
+    assert result.vals == expected.vals
+
+
+def test_matrix_dimension_mismatch_addition():
+    m1 = GeneralMatrix([[MockElement(1)], [MockElement(2)]])
+    m2 = GeneralMatrix([[MockElement(1), MockElement(2)]])
+    with pytest.raises(ValueError):
+        _ = m1 + m2
+
+
+def test_matrix_dimension_mismatch_multiplication():
+    m1 = GeneralMatrix([[MockElement(1), MockElement(2)]])
+    m2 = GeneralMatrix([[MockElement(3)], [MockElement(4)], [MockElement(5)]])
+    with pytest.raises(ValueError):
+        _ = m1 * m2
+
+
+def test_matrix_inconsistent_row_lengths():
+    with pytest.raises(ValueError):
+        GeneralMatrix([[MockElement(1), MockElement(2)], [MockElement(3)]])
+
+
+def test_matrix_different_element_types():
+    with pytest.raises(TypeError):
+        GeneralMatrix([[MockElement(1), MockElement(2)], [3, 4]])
+
+
+def test_matrix_element_type_lacking_operations():
+    class BadMockElement:
+        pass
+
+    with pytest.raises(TypeError):
+        GeneralMatrix([[BadMockElement(), BadMockElement()], [BadMockElement(), BadMockElement()]])

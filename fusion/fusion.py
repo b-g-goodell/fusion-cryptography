@@ -1,17 +1,15 @@
 from hashlib import shake_256, sha3_256
 from math import ceil, log2
 from typing import List, Dict, Tuple, Union
-from api.matrices import Matrix
-from api.polynomials import Polynomial as Poly
-# from algebra.matrices import Matrix
-# from algebra.polynomials import PolynomialCoefficientRepresentation, PolynomialNTTRepresentation, transform
-from algebra.sampling import sample_coefficient_matrix, sample_ntt_matrix
-from errors import _MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR, _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR, _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR
+from algebra.sampling import sample_matrix_by_coefs, sample_matrix_by_ntt
+from algebra.errors import _MODULUS_MISMATCH_ERR, _DEGREE_MISMATCH_ERR, _ROOT_ORDER_MISMATCH_ERR, _ROOT_MISMATCH_ERR
+from fusion.errors import _MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR, _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR, _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR
 from api.errors import DIMENSION_MISMATCH_ERR
+from api.matrices import GeneralMatrix as Matrix
+from api.polynomials import Polynomial as Poly
 
 
 # Some global constants
-
 PRIME: int = 2147465729
 DEGREES: Dict[int, int] = {128: 2**6, 256: 2**8}
 RANKS: Dict[int, int] = {128: 195, 256: 83}
@@ -24,7 +22,7 @@ CH_WTS: Dict[int, int] = {128: 27, 256: 60}
 AG_WTS: Dict[int, int] = {128: 35, 256: 60}
 CH_BDS: Dict[int, int] = {128: 3, 256: 1}
 AG_BDS: Dict[int, int] = {128: 2, 256: 1}
-PREFIX_PARAMETERS: Dict[int, Dict[str, Union[int, str]]] = {secpar: {
+IACR_SUGGESTED_PARAMS: Dict[int, Dict[str, Union[int, str]]] = {secpar: {
     "capacity": CAPACITIES[secpar], "modulus": PRIME, "degree": DEGREES[secpar],
     "root_order": 2 * DEGREES[secpar], "root": ROOTS[secpar], "inv_root": pow(ROOTS[secpar], PRIME - 2, PRIME),
     "num_rows_pub_challenge": 1, "num_rows_sk": RANKS[secpar], "num_rows_vk": 1,
@@ -32,6 +30,7 @@ PREFIX_PARAMETERS: Dict[int, Dict[str, Union[int, str]]] = {secpar: {
     "sign_hash_dst": SIGN_HASH_DSTS[secpar], "agg_xof_dst": AGG_XOF_DSTS[secpar], "beta_sk": 52, "beta_ch": 1,
     "beta_ag": 1, "omega_sk": DEGREES[secpar], "omega_ch": CH_WTS[secpar], "omega_ag": AG_WTS[secpar]
 } for secpar in [128, 256]}
+
 OTSK_STR_PREFIX: str = "OneTimeSigningKey"
 OTVK_STR_PREFIX: str = "OneTimeVerificationKey"
 OTK_STR_PREFIX: str = "OneTimeKeyTuple"
@@ -42,17 +41,17 @@ AGG_COEF_PREFIX: str = "AggregationCoefficient"
 AGG_SIG_PREFIX: str = "AggregateSignature"
 MOTVKC_PREFIX = "MessageOTVKChallengeTuple"
 
+
 # Constants computed from other constants
-
 for secpar in [128, 256]:
-    PREFIX_PARAMETERS[secpar]["omega_vf_intermediate"] = max(0, min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["omega_sk"]*(1+PREFIX_PARAMETERS[secpar]["omega_ch"])))
-    PREFIX_PARAMETERS[secpar]["beta_vf_intermediate"] = PREFIX_PARAMETERS[secpar]["beta_sk"] * (1 + max(0, min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["omega_ch"]))*PREFIX_PARAMETERS[secpar]["beta_ch"])
+    IACR_SUGGESTED_PARAMS[secpar]["omega_vf_intermediate"] = max(0, min(IACR_SUGGESTED_PARAMS[secpar]["degree"], IACR_SUGGESTED_PARAMS[secpar]["omega_sk"] * (1 + IACR_SUGGESTED_PARAMS[secpar]["omega_ch"])))
+    IACR_SUGGESTED_PARAMS[secpar]["beta_vf_intermediate"] = IACR_SUGGESTED_PARAMS[secpar]["beta_sk"] * (1 + max(0, min(IACR_SUGGESTED_PARAMS[secpar]["degree"], IACR_SUGGESTED_PARAMS[secpar]["omega_ch"])) * IACR_SUGGESTED_PARAMS[secpar]["beta_ch"])
 
-    PREFIX_PARAMETERS[secpar]["omega_vf"] = max(0, min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["capacity"]*PREFIX_PARAMETERS[secpar]["omega_vf_intermediate"]))
-    PREFIX_PARAMETERS[secpar]["beta_vf"] = (PREFIX_PARAMETERS[secpar]["capacity"] * max(0, min(PREFIX_PARAMETERS[secpar]["degree"], PREFIX_PARAMETERS[secpar]["omega_ag"])) * PREFIX_PARAMETERS[secpar]["beta_ag"] * PREFIX_PARAMETERS[secpar]["beta_vf_intermediate"])
+    IACR_SUGGESTED_PARAMS[secpar]["omega_vf"] = max(0, min(IACR_SUGGESTED_PARAMS[secpar]["degree"], IACR_SUGGESTED_PARAMS[secpar]["capacity"] * IACR_SUGGESTED_PARAMS[secpar]["omega_vf_intermediate"]))
+    IACR_SUGGESTED_PARAMS[secpar]["beta_vf"] = (IACR_SUGGESTED_PARAMS[secpar]["capacity"] * max(0, min(IACR_SUGGESTED_PARAMS[secpar]["degree"], IACR_SUGGESTED_PARAMS[secpar]["omega_ag"])) * IACR_SUGGESTED_PARAMS[secpar]["beta_ag"] * IACR_SUGGESTED_PARAMS[secpar]["beta_vf_intermediate"])
+
 
 # Simple wrappers for sha3 and shake
-
 def sha3_256_wrapper(message: str | bytes) -> bytes:
     """ Simple wrapper for sha3_256 """
     if isinstance(message, str):
@@ -60,15 +59,14 @@ def sha3_256_wrapper(message: str | bytes) -> bytes:
     return sha3_256(message).digest()
 
 
-def shake_256_wrapper(x: str | bytes, n: int) -> bytes:
+def shake_256_wrapper(message: str | bytes, num_bytes: int) -> bytes:
     """ Simple wrapper for shake_256 """
-    if isinstance(x, str):
-        return shake_256(x.encode('utf-8')).digest(n)
-    return shake_256(x).digest(n)
+    if isinstance(message, str):
+        return shake_256(message.encode('utf-8')).digest(num_bytes)
+    return shake_256(message).digest(num_bytes)
 
 
 # simple functions for counting bits and bytes
-
 def bits_for_bdd_coef(secpar: int, beta: int) -> int:
     """
     Number of bits to sample an integer from list(range(2*beta+1)) with
@@ -152,10 +150,7 @@ class Params(object):
     inv_root: int
     num_rows_pub_challenge: int
     num_rows_sk: int
-    num_rows_vk: int
-    num_cols_pub_challenge: int
     num_cols_sk: int
-    num_cols_vk: int
     beta_sk: int
     beta_ch: int
     beta_ag: int
@@ -177,37 +172,37 @@ class Params(object):
     bytes_per_agg_coef_poly: int
 
     def __init__(self, secpar: int):
-        if secpar not in PREFIX_PARAMETERS:
+        if secpar not in IACR_SUGGESTED_PARAMS:
             raise ValueError("Invalid security parameter.")
         self.secpar = secpar
-        self.capacity = PREFIX_PARAMETERS[secpar]["capacity"]
-        self.modulus = PREFIX_PARAMETERS[secpar]["modulus"]
-        self.degree = PREFIX_PARAMETERS[secpar]["degree"]
-        self.root_order = PREFIX_PARAMETERS[secpar]["root_order"]
-        self.root = PREFIX_PARAMETERS[secpar]["root"]
-        self.inv_root = PREFIX_PARAMETERS[secpar]["inv_root"]
-        self.num_rows_pub_challenge = PREFIX_PARAMETERS[secpar]["num_rows_pub_challenge"]
-        self.num_rows_sk = PREFIX_PARAMETERS[secpar]["num_rows_sk"]
-        self.num_rows_vk = PREFIX_PARAMETERS[secpar]["num_rows_vk"]
-        self.num_cols_sk = PREFIX_PARAMETERS[secpar]["num_cols_sk"]
-        self.num_cols_vk = PREFIX_PARAMETERS[secpar]["num_cols_vk"]
-        self.sign_pre_hash_dst = PREFIX_PARAMETERS[secpar]["sign_pre_hash_dst"]
-        self.sign_hash_dst = PREFIX_PARAMETERS[secpar]["sign_hash_dst"]
-        self.agg_xof_dst = PREFIX_PARAMETERS[secpar]["agg_xof_dst"]
-        self.beta_sk = PREFIX_PARAMETERS[secpar]["beta_sk"]
-        self.beta_ch = PREFIX_PARAMETERS[secpar]["beta_ch"]
-        self.beta_ag = PREFIX_PARAMETERS[secpar]["beta_ag"]
-        self.beta_vf_intermediate = PREFIX_PARAMETERS[secpar]["beta_vf_intermediate"]
-        self.beta_vf = PREFIX_PARAMETERS[secpar]["beta_vf"]
-        self.omega_sk = PREFIX_PARAMETERS[secpar]["omega_sk"]
-        self.omega_ch = PREFIX_PARAMETERS[secpar]["omega_ch"]
-        self.omega_ag = PREFIX_PARAMETERS[secpar]["omega_ag"]
-        self.omega_vf_intermediate = PREFIX_PARAMETERS[secpar]["omega_vf_intermediate"]
-        self.omega_vf = PREFIX_PARAMETERS[secpar]["omega_vf"]
-        self.public_challenge = sample_ntt_matrix(modulus=self.modulus, degree=self.degree, root_order=self.root_order, root=self.root, inv_root=self.inv_root, num_rows=self.num_rows_pub_challenge, num_cols=self.num_rows_sk)
+        self.capacity = IACR_SUGGESTED_PARAMS[secpar]["capacity"]
+        self.modulus = IACR_SUGGESTED_PARAMS[secpar]["modulus"]
+        self.degree = IACR_SUGGESTED_PARAMS[secpar]["degree"]
+        self.root_order = IACR_SUGGESTED_PARAMS[secpar]["root_order"]
+        self.root = IACR_SUGGESTED_PARAMS[secpar]["root"]
+        self.inv_root = IACR_SUGGESTED_PARAMS[secpar]["inv_root"]
+        self.num_rows_pub_challenge = IACR_SUGGESTED_PARAMS[secpar]["num_rows_pub_challenge"]
+        self.num_rows_sk = IACR_SUGGESTED_PARAMS[secpar]["num_rows_sk"]
+        # self.num_rows_vk = PREFIX_PARAMETERS[secpar]["num_rows_vk"]
+        self.num_cols_sk = IACR_SUGGESTED_PARAMS[secpar]["num_cols_sk"]
+        # self.num_cols_vk = PREFIX_PARAMETERS[secpar]["num_cols_vk"]
+        self.sign_pre_hash_dst = IACR_SUGGESTED_PARAMS[secpar]["sign_pre_hash_dst"]
+        self.sign_hash_dst = IACR_SUGGESTED_PARAMS[secpar]["sign_hash_dst"]
+        self.agg_xof_dst = IACR_SUGGESTED_PARAMS[secpar]["agg_xof_dst"]
+        self.beta_sk = IACR_SUGGESTED_PARAMS[secpar]["beta_sk"]
+        self.beta_ch = IACR_SUGGESTED_PARAMS[secpar]["beta_ch"]
+        self.beta_ag = IACR_SUGGESTED_PARAMS[secpar]["beta_ag"]
+        self.beta_vf_intermediate = IACR_SUGGESTED_PARAMS[secpar]["beta_vf_intermediate"]
+        self.beta_vf = IACR_SUGGESTED_PARAMS[secpar]["beta_vf"]
+        self.omega_sk = IACR_SUGGESTED_PARAMS[secpar]["omega_sk"]
+        self.omega_ch = IACR_SUGGESTED_PARAMS[secpar]["omega_ch"]
+        self.omega_ag = IACR_SUGGESTED_PARAMS[secpar]["omega_ag"]
+        self.omega_vf_intermediate = IACR_SUGGESTED_PARAMS[secpar]["omega_vf_intermediate"]
+        self.omega_vf = IACR_SUGGESTED_PARAMS[secpar]["omega_vf"]
+        self.public_challenge = sample_matrix_by_ntt(modulus=self.modulus, degree=self.degree, num_rows=self.num_rows_pub_challenge, num_cols=self.num_rows_sk)
 
     def __str__(self) -> str:
-        return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_rows_vk={self.num_rows_vk}, num_cols_sk={self.num_cols_sk}, num_cols_vk={self.num_cols_vk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_fy_shuffle={self.bytes_for_fy_shuffle})"
+        return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_cols_sk={self.num_cols_sk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_fy_shuffle={self.bytes_for_fy_shuffle})"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -224,10 +219,28 @@ class OneTimeSigningKey(object):
     def __init__(self, params: Params, left: Matrix, rght: Matrix):
         if not isinstance(left, Matrix) or not isinstance(rght, Matrix):
             raise TypeError(_MUST_BE_MATRIX_ERR)
+        elif len(params.public_challenge.vals) != params.num_rows_pub_challenge or len(params.public_challenge.vals[0]) != params.num_cols_sk:
+            raise TypeError(DIMENSION_MISMATCH_ERR)
         elif left.elem_class != rght.elem_class:
             raise ValueError(_ELEM_CLASS_MISMATCH_ERR)
-        elif len(left.matrix) != len(rght.matrix) or len(left.matrix[0]) != len(rght.matrix[0]):
+        elif len(left.vals) != len(rght.vals) or len(left.vals) != params.num_rows_sk:
             raise ValueError(DIMENSION_MISMATCH_ERR)
+        elif len(left.vals[0]) != len(rght.vals[0]) or len(left.vals[0]) != params.num_cols_sk:
+            raise ValueError(DIMENSION_MISMATCH_ERR)
+        for next_row in left.vals + rght.vals:
+            for next_poly in next_row:
+                if not isinstance(next_poly, Poly):
+                    raise TypeError(_MUST_BE_POLY_ERR)
+                elif next_poly.ntt_rep.mod != params.modulus:
+                    raise ValueError(_MODULUS_MISMATCH_ERR)
+                elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep.vals) != params.degree:
+                    raise ValueError(_DEGREE_MISMATCH_ERR)
+                elif next_poly.ntt_rep.root_order != params.root_order:
+                    raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
+                elif next_poly.ntt_rep.root != params.root:
+                    raise ValueError(_ROOT_MISMATCH_ERR)
+                elif next_poly.ntt_rep.inv_root != params.inv_root:
+                    raise ValueError(_INV_ROOT_MISMATCH_ERR)
         c_left, n_left, w_left = left.coefs_norm_weight
         c_rght, n_rght, w_rght = rght.coefs_norm_weight
         if max(n_left, n_rght) > params.beta_sk:
@@ -235,8 +248,8 @@ class OneTimeSigningKey(object):
         elif max(w_left, w_rght) > params.omega_sk:
             raise ValueError(_WGHT_TOO_LARGE_ERR)
         self.params = params
-        self.left_sk = left
-        self.rght_sk = rght
+        self.left = left
+        self.rght = rght
 
     def __str__(self):
         # Do not print your key.
@@ -255,10 +268,28 @@ class OneTimeVerificationKey(object):
     def __init__(self, params: Params, left: Matrix, rght: Matrix):
         if not isinstance(left, Matrix) or not isinstance(rght, Matrix):
             raise TypeError(_MUST_BE_MATRIX_ERR)
+        elif len(params.public_challenge.vals) != params.num_rows_pub_challenge or len(params.public_challenge.vals[0]) != params.num_cols_sk:
+            raise TypeError(DIMENSION_MISMATCH_ERR)
         elif left.elem_class != rght.elem_class:
             raise ValueError(_ELEM_CLASS_MISMATCH_ERR)
-        elif len(left.matrix) != len(rght.matrix) or len(left.matrix[0]) != len(rght.matrix[0]):
+        elif len(left.vals) != len(rght.vals) or len(left.vals) != params.num_rows_pub_challenge:
             raise ValueError(DIMENSION_MISMATCH_ERR)
+        elif len(left.vals[0]) != len(rght.vals[0]) or len(left.vals[0]) != params.num_cols_sk:
+            raise ValueError(DIMENSION_MISMATCH_ERR)
+        for next_row in left.vals + rght.vals:
+            for next_poly in next_row:
+                if not isinstance(next_poly, Poly):
+                    raise TypeError(_MUST_BE_POLY_ERR)
+                elif next_poly.ntt_rep.mod != params.modulus:
+                    raise ValueError(_MODULUS_MISMATCH_ERR)
+                elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep.vals) != params.degree:
+                    raise ValueError(_DEGREE_MISMATCH_ERR)
+                elif next_poly.ntt_rep.root_order != params.root_order:
+                    raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
+                elif next_poly.ntt_rep.root != params.root:
+                    raise ValueError(_ROOT_MISMATCH_ERR)
+                elif next_poly.ntt_rep.inv_root != params.inv_root:
+                    raise ValueError(_INV_ROOT_MISMATCH_ERR)
         self.params = params
         self.left = left
         self.rght = rght
@@ -292,21 +323,16 @@ class OneTimeKeyTuple(object):
 
 
 class Message:
-    params: Params
     msg: str
 
-    def __init__(self, params: Params, msg: str):
-        self.params = params
+    def __init__(self, msg: str):
         self.msg = msg
 
     def __str__(self):
-        return MSG_PREFIX+f"(params={self.params},msg={self.msg})"
+        return MSG_PREFIX+f"(msg={self.msg})"
 
     def __repr__(self):
         return self.__str__()
-
-    def __eq__(self, other):
-        return self.msg == other.msg
 
 
 class SignatureChallenge(object):
@@ -316,6 +342,18 @@ class SignatureChallenge(object):
     def __init__(self, params: Params, chall: Poly):
         if not isinstance(chall, Poly):
             raise TypeError(_MUST_BE_POLY_ERR)
+        elif chall.ntt_rep.mod != params.modulus:
+            raise ValueError(_MODULUS_MISMATCH_ERR)
+        elif chall.ntt_rep.deg != params.degree or len(chall.ntt_rep.vals) != params.degree:
+            raise ValueError(_DEGREE_MISMATCH_ERR)
+        elif chall.ntt_rep.root_order != params.root_order:
+            raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
+        elif chall.ntt_rep.root != params.root:
+            raise ValueError(_ROOT_MISMATCH_ERR)
+        elif chall.ntt_rep.inv_root != params.inv_root:
+            raise ValueError(_INV_ROOT_MISMATCH_ERR)
+        elif not isinstance(params, Params):
+            raise TypeError(_MUST_BE_PARAMS_ERR)
         c, n, w = chall.coefs_norm_weight
         if n > params.beta_ch:
             raise ValueError(_NORM_TOO_LARGE_ERR)
@@ -635,21 +673,17 @@ def fusion_setup(secpar: int) -> Params:
 
 
 def fusion_keygen(params: Params) -> OneTimeKeyTuple:
-    left_key_coefs: Matrix = sample_coefficient_matrix(modulus=params.modulus, degree=params.degree,
-                                                              root_order=params.root_order, root=params.root,
-                                                              inv_root=params.inv_root, num_rows=params.num_rows_sk,
-                                                              num_cols=params.num_cols_sk, norm_bound=params.beta_sk,
-                                                              weight_bound=params.omega_sk)
-    right_key_coefs: Matrix = sample_coefficient_matrix(modulus=params.modulus, degree=params.degree,
-                                                               root_order=params.root_order, root=params.root,
-                                                               inv_root=params.inv_root, num_rows=params.num_rows_sk,
-                                                               num_cols=params.num_cols_sk, norm_bound=params.beta_sk,
-                                                               weight_bound=params.omega_sk)
+    left_key_coefs: Matrix = sample_matrix_by_coefs(mod=params.modulus, deg=params.degree,
+                                                    num_rows=params.num_rows_sk, num_cols=params.num_cols_sk,
+                                                    norm=params.beta_sk, wght=params.omega_sk)
+    right_key_coefs: Matrix = sample_matrix_by_coefs(mod=params.modulus, deg=params.degree,
+                                                     num_rows=params.num_rows_sk, num_cols=params.num_cols_sk,
+                                                     norm=params.beta_sk, wght=params.omega_sk)
     left_sk_hat: Matrix = Matrix(
-        matrix=[[transform(y) for y in z] for z in left_key_coefs.matrix]
+        matrix=[[transform(y) for y in z] for z in left_key_coefs.vals]
     )
     right_sk_hat: Matrix = Matrix(
-        matrix=[[transform(y) for y in z] for z in right_key_coefs.matrix]
+        matrix=[[transform(y) for y in z] for z in right_key_coefs.vals]
     )
     otsk: OneTimeSigningKey = OneTimeSigningKey(left_sk_hat=left_sk_hat, right_sk_hat=right_sk_hat)
     left_vk_hat: Matrix = params.public_challenge * left_sk_hat
