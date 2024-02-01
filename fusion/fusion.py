@@ -2,11 +2,14 @@ from hashlib import shake_256, sha3_256
 from math import ceil, log2
 from typing import List, Dict, Tuple, Union
 from algebra.sampling import sample_matrix_by_coefs, sample_matrix_by_ntt
-from algebra.errors import _MODULUS_MISMATCH_ERR, _DEGREE_MISMATCH_ERR, _ROOT_ORDER_MISMATCH_ERR, _ROOT_MISMATCH_ERR
-from fusion.errors import _MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR, _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR, _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR
+from algebra.errors import (_MODULUS_MISMATCH_ERR, _DEGREE_MISMATCH_ERR, _ROOT_ORDER_MISMATCH_ERR, _ROOT_MISMATCH_ERR,
+                            _DIMENSION_MISMATCH_ERR, _INV_ROOT_MISMATCH_ERR)
+from fusion.errors import (_MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR,
+                           _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR,
+                           _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR)
 from api.errors import DIMENSION_MISMATCH_ERR
-from api.matrices import GeneralMatrix as Matrix
-from api.polynomials import Polynomial as Poly
+from algebra.polynomials import Polynomial as Poly
+from algebra.matrices import PolynomialMatrix as Matrix
 
 
 # Some global constants
@@ -31,6 +34,7 @@ IACR_SUGGESTED_PARAMS: Dict[int, Dict[str, Union[int, str]]] = {secpar: {
     "beta_ag": 1, "omega_sk": DEGREES[secpar], "omega_ch": CH_WTS[secpar], "omega_ag": AG_WTS[secpar]
 } for secpar in [128, 256]}
 
+# __str__ prefixes
 OTSK_STR_PREFIX: str = "OneTimeSigningKey"
 OTVK_STR_PREFIX: str = "OneTimeVerificationKey"
 OTK_STR_PREFIX: str = "OneTimeKeyTuple"
@@ -39,8 +43,10 @@ MSG_PREFIX: str = "Message"
 SIG_PREFIX: str = "Signature"
 AGG_COEF_PREFIX: str = "AggregationCoefficient"
 AGG_SIG_PREFIX: str = "AggregateSignature"
-MOTVKC_PREFIX = "MessageOTVKChallengeTuple"
-
+KMC_PREFIX = "MessageOTVKChallengeTuple"
+MOTVKCSignatureTuple_PREFIX = "MessageOTVKChallengeSignatureTuple"
+AGG_COEFS_MATRIX_PREFIX: str = "AggCoefsMatrix"
+AGGREGATION_PACKAGE_PREFIX: str = "AggregationPackage"
 
 # Constants computed from other constants
 for secpar in [128, 256]:
@@ -183,9 +189,9 @@ class Params(object):
         self.inv_root = IACR_SUGGESTED_PARAMS[secpar]["inv_root"]
         self.num_rows_pub_challenge = IACR_SUGGESTED_PARAMS[secpar]["num_rows_pub_challenge"]
         self.num_rows_sk = IACR_SUGGESTED_PARAMS[secpar]["num_rows_sk"]
-        # self.num_rows_vk = PREFIX_PARAMETERS[secpar]["num_rows_vk"]
+        # self.num_rows_vk = PREFIX_PARAMETERS[secpar]["num_rows_vk"] == self.num_rows_pub_challenge
         self.num_cols_sk = IACR_SUGGESTED_PARAMS[secpar]["num_cols_sk"]
-        # self.num_cols_vk = PREFIX_PARAMETERS[secpar]["num_cols_vk"]
+        # self.num_cols_vk = PREFIX_PARAMETERS[secpar]["num_cols_vk"] == self.num_cols_sk
         self.sign_pre_hash_dst = IACR_SUGGESTED_PARAMS[secpar]["sign_pre_hash_dst"]
         self.sign_hash_dst = IACR_SUGGESTED_PARAMS[secpar]["sign_hash_dst"]
         self.agg_xof_dst = IACR_SUGGESTED_PARAMS[secpar]["agg_xof_dst"]
@@ -204,77 +210,88 @@ class Params(object):
     def __str__(self) -> str:
         return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_cols_sk={self.num_cols_sk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_fy_shuffle={self.bytes_for_fy_shuffle})"
 
-    def __repr__(self) -> str:
-        return self.__str__()
-
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
 
 class OneTimeSigningKey(object):
-    params: Params
-    left: Matrix
-    rght: Matrix
+    _params: Params
+    _left: Matrix
+    _rght: Matrix
 
     def __init__(self, params: Params, left: Matrix, rght: Matrix):
         if not isinstance(left, Matrix) or not isinstance(rght, Matrix):
             raise TypeError(_MUST_BE_MATRIX_ERR)
-        elif len(params.public_challenge.vals) != params.num_rows_pub_challenge or len(params.public_challenge.vals[0]) != params.num_cols_sk:
-            raise TypeError(DIMENSION_MISMATCH_ERR)
-        elif left.elem_class != rght.elem_class:
+        elif not left.elem_class is rght.elem_class or not rght.elem_class is Poly:
             raise ValueError(_ELEM_CLASS_MISMATCH_ERR)
-        elif len(left.vals) != len(rght.vals) or len(left.vals) != params.num_rows_sk:
-            raise ValueError(DIMENSION_MISMATCH_ERR)
-        elif len(left.vals[0]) != len(rght.vals[0]) or len(left.vals[0]) != params.num_cols_sk:
-            raise ValueError(DIMENSION_MISMATCH_ERR)
+        elif params.public_challenge.rows != params.num_rows_pub_challenge or params.public_challenge.cols != params.num_rows_sk:
+            raise ValueError(_DIMENSION_MISMATCH_ERR)
+        elif not left.elem_class is rght.elem_class or not rght.elem_class is Poly:
+            raise ValueError(_ELEM_CLASS_MISMATCH_ERR)
+        elif left.rows != rght.rows or left.rows != params.num_rows_sk or left.cols != rght.cols or left.cols != params.num_cols_sk:
+            raise ValueError(_DIMENSION_MISMATCH_ERR)
+        elif any(f.deg != params.degree for next_row in left.vals + rght.vals for f in next_row):
+            raise TypeError(_DEGREE_MISMATCH_ERR)
         for next_row in left.vals + rght.vals:
-            for next_poly in next_row:
-                if not isinstance(next_poly, Poly):
+            for f in next_row:
+                if not isinstance(f, Poly):
                     raise TypeError(_MUST_BE_POLY_ERR)
-                elif next_poly.ntt_rep.mod != params.modulus:
+                elif f.ntt_rep.mod != params.modulus:
                     raise ValueError(_MODULUS_MISMATCH_ERR)
-                elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep.vals) != params.degree:
+                elif f.ntt_rep.deg != params.degree:
                     raise ValueError(_DEGREE_MISMATCH_ERR)
-                elif next_poly.ntt_rep.root_order != params.root_order:
+                elif f.ntt_rep.root_order != params.root_order:
                     raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
-                elif next_poly.ntt_rep.root != params.root:
+                elif f.ntt_rep.root != params.root:
                     raise ValueError(_ROOT_MISMATCH_ERR)
-                elif next_poly.ntt_rep.inv_root != params.inv_root:
+                elif f.ntt_rep.inv_root != params.inv_root:
                     raise ValueError(_INV_ROOT_MISMATCH_ERR)
-        c_left, n_left, w_left = left.coefs_norm_weight
-        c_rght, n_rght, w_rght = rght.coefs_norm_weight
-        if max(n_left, n_rght) > params.beta_sk:
-            raise ValueError(_NORM_TOO_LARGE_ERR)
-        elif max(w_left, w_rght) > params.omega_sk:
-            raise ValueError(_WGHT_TOO_LARGE_ERR)
-        self.params = params
-        self.left = left
-        self.rght = rght
+                _, n, w = f.coef_norm_wght
+                if n > params.beta_sk:
+                    raise ValueError(_NORM_TOO_LARGE_ERR)
+                elif w > params.omega_sk:
+                    raise ValueError(_WGHT_TOO_LARGE_ERR)
+        self._params = params
+        self._left = left
+        self._rght = rght
 
     def __str__(self):
         # Do not print your key.
         return OTSK_STR_PREFIX + f"(params={self.params},left={str(self.left)}, rght={str(self.rght)})"
 
-    def __repr__(self):
-        # Do not print your key.
-        return self.__str__()
+    @property
+    def params(self) -> Params:
+        return self._params
+
+    @property
+    def left(self) -> Matrix:
+        return self._left
+
+    @property
+    def rght(self) -> Matrix:
+        return self._rght
+
+    def __eq__(self, other):
+        return (self.params == other.params and
+                (self.left - other.left) % self.params.modulus == 0 and
+                (self.rght - other.rght) % self.params.modulus == 0)
 
 
 class OneTimeVerificationKey(object):
-    params: Params
-    left: Matrix
-    rght: Matrix
+    _params: Params
+    _left: Matrix
+    _rght: Matrix
 
     def __init__(self, params: Params, left: Matrix, rght: Matrix):
-        if not isinstance(left, Matrix) or not isinstance(rght, Matrix):
+        if not isinstance(params, Params):
+            raise TypeError(_MUST_BE_PARAMS_ERR)
+        elif not isinstance(left, Matrix) or not isinstance(rght, Matrix):
             raise TypeError(_MUST_BE_MATRIX_ERR)
-        elif len(params.public_challenge.vals) != params.num_rows_pub_challenge or len(params.public_challenge.vals[0]) != params.num_cols_sk:
-            raise TypeError(DIMENSION_MISMATCH_ERR)
-        elif left.elem_class != rght.elem_class:
+        elif params.public_challenge.rows != params.num_rows_pub_challenge or params.public_challenge.cols != params.num_rows_sk:
+            raise ValueError(_DIMENSION_MISMATCH_ERR)
+        elif not left.elem_class is rght.elem_class or not rght.elem_class is Poly:
             raise ValueError(_ELEM_CLASS_MISMATCH_ERR)
-        elif len(left.vals) != len(rght.vals) or len(left.vals) != params.num_rows_pub_challenge:
-            raise ValueError(DIMENSION_MISMATCH_ERR)
-        elif len(left.vals[0]) != len(rght.vals[0]) or len(left.vals[0]) != params.num_cols_sk:
+        elif left.rows != rght.rows or left.rows != params.num_rows_pub_challenge or left.cols != rght.cols or left.cols != params.num_cols_sk:
             raise ValueError(DIMENSION_MISMATCH_ERR)
         for next_row in left.vals + rght.vals:
             for next_poly in next_row:
@@ -282,7 +299,7 @@ class OneTimeVerificationKey(object):
                     raise TypeError(_MUST_BE_POLY_ERR)
                 elif next_poly.ntt_rep.mod != params.modulus:
                     raise ValueError(_MODULUS_MISMATCH_ERR)
-                elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep.vals) != params.degree:
+                elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep._vals) != params.degree:
                     raise ValueError(_DEGREE_MISMATCH_ERR)
                 elif next_poly.ntt_rep.root_order != params.root_order:
                     raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
@@ -290,90 +307,107 @@ class OneTimeVerificationKey(object):
                     raise ValueError(_ROOT_MISMATCH_ERR)
                 elif next_poly.ntt_rep.inv_root != params.inv_root:
                     raise ValueError(_INV_ROOT_MISMATCH_ERR)
-        self.params = params
-        self.left = left
-        self.rght = rght
+        self._params = params
+        self._left = left
+        self._rght = rght
 
     def __str__(self):
-        return OTVK_STR_PREFIX + f"(params={self.params},left={self.left}, rght={self.rght})"
+        # Do not print your key.
+        return OTSK_STR_PREFIX + f"(params={self.params},left={str(self.left)}, rght={str(self.rght)})"
 
-    def __repr__(self):
-        return self.__str__()
+    @property
+    def params(self) -> Params:
+        return self._params
+
+    @property
+    def left(self) -> Matrix:
+        return self._left
+
+    @property
+    def rght(self) -> Matrix:
+        return self._rght
+
+    def __eq__(self, other):
+        return (self.params == other.params and
+                (self.left - other.left) % self.params.modulus == 0 and
+                (self.rght - other.rght) % self.params.modulus == 0)
 
 
-class OneTimeKeyTuple(object):
-    params: Params
-    otsk: OneTimeSigningKey
-    otvk: OneTimeVerificationKey
+class OneTimeKey(object):
+    _otsk: OneTimeSigningKey
+    _otvk: OneTimeVerificationKey
 
     def __init__(self, params: Params, otsk: OneTimeSigningKey, otvk: OneTimeVerificationKey):
-        if params != otsk.params or params != otvk.params:
+        if otsk.params != otvk.params:
             raise ValueError(_PARAMS_MISMATCH_ERR)
-        elif params.public_challenge * otsk.left != otvk.left or params.public_challenge * otsk.rght != otvk.rght:
+        elif ((params.public_challenge * otsk.left - otvk.left) % params.modulus
+              or (params.public_challenge * otsk.rght - otvk.rght) % params.modulus):
             raise ValueError(_KEYS_NOT_VALID_ERR)
-        self.params = params
-        self.otsk = otsk
-        self.otvk = otvk
+        self._otsk = otsk
+        self._otvk = otvk
+
+    @property
+    def params(self) -> Params:
+        return self.otvk.params
+
+    @property
+    def otsk(self) -> OneTimeSigningKey:
+        return self._otsk
+
+    @property
+    def otvk(self) -> OneTimeVerificationKey:
+        return self._otvk
 
     def __str__(self):
         return OTK_STR_PREFIX+f"(params={self.params},otsk={self.otsk},otvk={self.otvk})"
 
-    def __repr__(self):
-        return self.__str__()
+    def __eq__(self, other):
+        return self.otsk == other.otsk and self.otvk == other.otvk
 
 
-class Message:
-    msg: str
+class Challenge(object):
+    _params: Params
+    _val: Poly
 
-    def __init__(self, msg: str):
-        self.msg = msg
-
-    def __str__(self):
-        return MSG_PREFIX+f"(msg={self.msg})"
-
-    def __repr__(self):
-        return self.__str__()
-
-
-class SignatureChallenge(object):
-    params: Params
-    chall: Poly
-
-    def __init__(self, params: Params, chall: Poly):
-        if not isinstance(chall, Poly):
+    def __init__(self, params: Params, val: Poly):
+        if not isinstance(val, Poly):
             raise TypeError(_MUST_BE_POLY_ERR)
-        elif chall.ntt_rep.mod != params.modulus:
+        elif val.ntt_rep.mod != params.modulus:
             raise ValueError(_MODULUS_MISMATCH_ERR)
-        elif chall.ntt_rep.deg != params.degree or len(chall.ntt_rep.vals) != params.degree:
+        elif val.ntt_rep.deg != params.degree or len(val.ntt_rep._vals) != params.degree:
             raise ValueError(_DEGREE_MISMATCH_ERR)
-        elif chall.ntt_rep.root_order != params.root_order:
+        elif val.ntt_rep.root_order != params.root_order:
             raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
-        elif chall.ntt_rep.root != params.root:
+        elif val.ntt_rep.root != params.root:
             raise ValueError(_ROOT_MISMATCH_ERR)
-        elif chall.ntt_rep.inv_root != params.inv_root:
+        elif val.ntt_rep.inv_root != params.inv_root:
             raise ValueError(_INV_ROOT_MISMATCH_ERR)
         elif not isinstance(params, Params):
             raise TypeError(_MUST_BE_PARAMS_ERR)
-        c, n, w = chall.coefs_norm_weight
+        c, n, w = val.coef_norm_wght
         if n > params.beta_ch:
             raise ValueError(_NORM_TOO_LARGE_ERR)
         elif w > params.omega_ch:
             raise ValueError(_WGHT_TOO_LARGE_ERR)
-        self.params = params
-        self.chall = chall
+        self._params = params
+        self._val = val
 
     def __str__(self):
-        return SIG_CHALL_PREFIX+f"(params={self.params},chall={str(self.chall)})"
-
-    def __repr__(self):
-        return self.__str__()
+        return SIG_CHALL_PREFIX+f"(params={self.params},val={str(self.val)})"
 
     def __eq__(self, other):
         return self.chall == other.chall
 
+    @property
+    def params(self) -> Params:
+        return self._params
+
+    @property
+    def val(self) -> Poly:
+        return self._val
+
 
 # Supporting internal functions
-
 def _pre_hash_msg_to_int_digest(params: Params, msg: str) -> int:
     # Apply sha3-256 for hash-then-sign
     dst_and_msg: bytes = str.encode(
@@ -449,93 +483,102 @@ def _bytes_digest_to_polys(params: Params, beta: int, omega: int, b: bytes, num_
     return result
 
 
-def _make_sig_challenge(params: Params, otvk: OneTimeVerificationKey, msg: str) -> SignatureChallenge:
+def _make_sig_challenge(params: Params, otvk: OneTimeVerificationKey, msg: str) -> Challenge:
     num_bytes_needed: int = bytes_for_bdd_poly(secpar=params.secpar, beta=params.beta_ch, degree=params.degree, omega=params.omega_ch)
     prehashed_msg: int = _pre_hash_msg_to_int_digest(params=params, msg=msg)
     hashed_key_and_prehashed_msg: bytes = _hash_vk_and_pre_hashed_msg_to_bytes_digest(params=params, otvk=otvk, pre_hashed_msg=prehashed_msg, num_bytes=num_bytes_needed)
     c: Poly = _bytes_digest_to_polys(params=params, beta=params.beta_ch, omega=params.omega_ch, b=hashed_key_and_prehashed_msg, num_polys=1)[0]
-    return SignatureChallenge(params=params, chall=c)
+    return Challenge(params=params, val=c)
 
 
-class MessageOTVKChallengeTuple:
-    params: Params
-    msg: Message
-    otvk: OneTimeVerificationKey
-    chall: SignatureChallenge
+class KeyMessageChallenge:
+    _otvk: OneTimeVerificationKey
+    _msg: str
+    _chall: Challenge
 
-    def __init__(self, params: Params, msg: Message, otvk: OneTimeVerificationKey, chall: SignatureChallenge):
-        if params != msg.params or params != chall.params or params != otvk.params:
-            raise ValueError(_PARAMS_MISMATCH_ERR)
-        elif chall != _make_sig_challenge(params=params, otvk=otvk, msg=msg.msg):
+    def __init__(self, msg: str, otvk: OneTimeVerificationKey, chall: Challenge):
+        if chall != _make_sig_challenge(params=otvk.params, otvk=otvk, msg=msg):
             raise ValueError(_CHALL_NOT_VALID_ERR)
-        self.params = params
-        self.msg = msg
-        self.otvk = otvk
-        self.chall = chall
+        self._otvk = otvk
+        self._msg = msg
+        self._chall = chall
 
     def __str__(self):
-        return MOTVKC_PREFIX+f"(params={self.params},chall={str(self.chall)})"
-
-    def __repr__(self):
-        return self.__str__()
+        return KMC_PREFIX+ f"(params={self.params},chall={str(self.chall)})"
 
     def __eq__(self, other):
-        return self.params == other.params and self.msg == other.msg and self.otvk == other.otvk and self.chall == other.chall
+        return self.msg == other.msg and self.otvk == other.otvk and self.chall == other.chall
+
+    @property
+    def params(self) -> Params:
+        return self.otvk.params
+
+    @property
+    def otvk(self) -> OneTimeVerificationKey:
+        return self._otvk
+
+    @property
+    def msg(self) -> str:
+        return self._msg
+
+    @property
+    def chall(self) -> Challenge:
+        return self._chall
 
 
 class Signature(object):
-    params: Params
-    signature: Matrix
+    _signature: Matrix
 
-    def __init__(self, params: Params, signature: Matrix):
-        c, n, w = signature.coefs_norm_weight
-        if n > params.beta_vf_intermediate:
-            raise ValueError(_NORM_TOO_LARGE_ERR)
-        elif w > params.omega_vf_intermediate:
-            raise ValueError(_WGHT_TOO_LARGE_ERR)
+    def __init__(self, signature: Matrix):
+        for next_row in signature.vals:
+            for next_poly in next_row:
+                _, n, w = next_poly.coef_norm_wght
+                if n > signature.params.beta_vf_intermediate:
+                    raise ValueError(_NORM_TOO_LARGE_ERR)
+                elif w > signature.params.omega_vf_intermediate:
+                    raise ValueError(_WGHT_TOO_LARGE_ERR)
         self.params = params
-        self.signature = signature
+        self._signature = signature
 
     def __str__(self):
-        return SIG_PREFIX+f"(params={self.params},signature={str(self.signature)})"
-
-    def __repr__(self):
-        return self.__str__()
+        return SIG_PREFIX+f"(params={self.params},signature={str(self._signature)})"
 
     def __eq__(self, other):
-        return self.signature == other.signature and self.params == other.params
+        return self._signature == other._signature and self.params == other.params
+
+    @property
+    def params(self) -> Params:
+        return self._params
 
 
-MOTVKCSignatureTuple_PREFIX = "MessageOTVKChallengeSignatureTuple"
-
-class MOTVKCSignatureTuple:
-    params: Params
-    motvkc: MessageOTVKChallengeTuple
+class SignedMessage(object):
+    kmc: KeyMessageChallenge
     sig: Signature
 
-    def __init__(self, params: Params, motvkc: MessageOTVKChallengeTuple, sig: Signature):
+    def __init__(self, params: Params, motvkc: KeyMessageChallenge, sig: Signature):
         if params != motvkc.params or params != sig.params:
             raise ValueError(_PARAMS_MISMATCH_ERR)
         self.params = params
-        self.motvkc = motvkc
+        self.kmc = motvkc
         self.sig = sig
 
     def __str__(self):
-        return MOTVKCSignatureTuple_PREFIX + f"(params={self.params},motvkc={str(self.motvkc)},sig={str(self.sig)})"
-
-    def __repr__(self):
-        return self.__str__()
+        return MOTVKCSignatureTuple_PREFIX + f"(params={self.params},motvkc={str(self.kmc)},sig={str(self.sig)})"
 
     def __eq__(self, other):
-        return self.params == other.params and self.motvkc == other.motvkc and self.sig == other.sig
+        return self.params == other.params and self.kmc == other.kmc and self.sig == other.sig
+
+    @property
+    def params(self) -> Params:
+        return self.params
 
 
 class AggregationCoefficient(object):
-    params: Params
+    _params: Params
     alpha: Poly
 
     def __init__(self, params: Params, alpha: Poly):
-        c, n, w = alpha.coefs_norm_weight
+        c, n, w = alpha.coef_norm_wght
         if n > params.beta_ag:
             raise ValueError(_NORM_TOO_LARGE_ERR)
         elif w > params.omega_ag:
@@ -546,23 +589,26 @@ class AggregationCoefficient(object):
     def __str__(self):
         return AGG_COEF_PREFIX+f"(params={self.params},alpha={self.alpha})"
 
-    def __repr__(self):
-        return self.__str__()
-
     def __eq__(self, other):
         return self.alpha == other.alpha and self.params == other.params
 
+    @property
+    def params(self) -> Params:
+        return self._params
 
-AGG_COEFS_MATRIX_PREFIX: str = "AggCoefsMatrix"
 
-
-class AggCoefsMatrix(object):
-    params: Params
+class AggregationMatrix(object):
+    # Todo: finish type checking
     agg_coefs: Matrix
 
     def __init__(self, params: Params, agg_coefs: Matrix):
+        elem_class: type = type(None)
         for each_agg_coef in agg_coefs:
-            c, n, w = each_agg_coef.coefs_norm_weight
+            if elem_class is type(None):
+                elem_class = type(each_agg_coef)
+            elif not isinstance(each_agg_coef, elem_class):
+                raise TypeError(_ELEM_CLASS_MISMATCH_ERR)
+            c, n, w = each_agg_coef.coef_norm_wght
             if n > params.beta_ag:
                 raise ValueError(_NORM_TOO_LARGE_ERR)
             elif w > params.omega_ag:
@@ -573,18 +619,16 @@ class AggCoefsMatrix(object):
     def __str__(self):
         return AGG_COEFS_MATRIX_PREFIX + f"(params={self.params},agg_coefs={self.agg_coefs})"
 
-    def __repr__(self):
-        return self.__str__()
-
     def __eq__(self, other):
         return self.params == other.params and self.agg_coefs == other.agg_coefs
 
-
-AGGREGATION_PACKAGE_PREFIX: str = "AggregationPackage"
+    @property
+    def params(self) -> Params:
+        return self.agg_coefs[0][0].params
 
 
 def _make_aggregation_coefficients(params: Params, srt_otvks: List[OneTimeVerificationKey],
-                                   srt_pre_hashed_msgs: List[int], srt_challs: List[SignatureChallenge]) -> List[AggregationCoefficient]:
+                                   srt_pre_hashed_msgs: List[int], srt_challs: List[Challenge]) -> List[AggregationCoefficient]:
     num_keys: int = len(srt_otvks)
     num_bytes_needed_per_poly: int = bytes_for_bdd_poly((params.secpar, params.beta_ag, params.degree, params.omega_ag))
     num_bytes_needed: int = num_keys * num_bytes_needed_per_poly
@@ -595,11 +639,11 @@ def _make_aggregation_coefficients(params: Params, srt_otvks: List[OneTimeVerifi
 
 class AggregationPackage(object):
     params: Params
-    motvkcs: List[MessageOTVKChallengeTuple]
+    motvkcs: List[KeyMessageChallenge]
     sigs: List[Signature]
-    agg_coefs: AggCoefsMatrix
+    agg_coefs: AggregationMatrix
 
-    def __init__(self, params: Params, motvkcs: List[MessageOTVKChallengeTuple], sigs: List[Signature], agg_coefs: AggCoefsMatrix):
+    def __init__(self, params: Params, motvkcs: List[KeyMessageChallenge], sigs: List[Signature], agg_coefs: AggregationMatrix):
         if not all(params == x.params for x in motvkcs) or not all(params == x.params for x in sigs) or params != agg_coefs.params:
             raise ValueError(_PARAMS_MISMATCH_ERR)
         elif len(motvkcs) != len(sigs) or len(motvkcs) != len(agg_coefs.agg_coefs):
@@ -614,9 +658,6 @@ class AggregationPackage(object):
 
     def __str__(self):
         return AGGREGATION_PACKAGE_PREFIX + f"(params={self.params},motvkcs={self.motvkcs},sigs={self.sigs},agg_coefs={self.agg_coefs})"
-
-    def __repr__(self):
-        return self.__str__()
 
     def __eq__(self, other):
         return self.params == other.params and self.motvkcs == other.motvkcs and self.sigs == other.sigs and self.agg_coefs == other.agg_coefs
@@ -638,26 +679,21 @@ class AggregateSignature(object):
     def __str__(self):
         return AGG_SIG_PREFIX+f"(aggregate_signature={str(self.aggregate_signature)})"
 
-    def __repr__(self):
-        return self.__str__()
-
 
 def _verify_signature(params: Params, otvk: OneTimeVerificationKey, msg: str, sig: Signature) -> Tuple[bool, str]:
-    c, n, w = sig.signature.coefs_norm_weight
+    c, n, w = sig._signature.coefs_norm_weight
     if n > params.beta_vf_intermediate:
         return False, "Norm of purported signature too large"
     elif w > params.omega_vf_intermediate:
         return False, "Hamming weight of purported signature too large"
-    c: SignatureChallenge = _make_sig_challenge(params=params, otvk=otvk, msg=msg)
+    c: Challenge = _make_sig_challenge(params=params, otvk=otvk, msg=msg)
     target_image: Matrix = otvk.left_vk_hat + otvk.right_vk_hat * c
     if params.public_challenge * sig != target_image:
         return False, "Signature image does not match target image."
     return True, "Signature valid."
 
 
-def _hash_vks_and_pre_hashed_msgs_and_challs_to_bytes_digest(params: Params, otvks: List[OneTimeVerificationKey],
-                                                             pre_hashed_msgs: List[int], challs: List[SignatureChallenge],
-                                                             num_bytes: int) -> bytes:
+def _hash_vks_and_pre_hashed_msgs_and_challs_to_bytes_digest(params: Params, otvks: List[OneTimeVerificationKey], pre_hashed_msgs: List[int], challs: List[Challenge], num_bytes: int) -> bytes:
     dst_and_vks_and_pre_hashed_msgs_and_challs: bytes = str.encode(
         params.agg_xof_dst
         + ","
@@ -667,12 +703,11 @@ def _hash_vks_and_pre_hashed_msgs_and_challs_to_bytes_digest(params: Params, otv
 
 
 # Fusion algorithms
-
 def fusion_setup(secpar: int) -> Params:
     return Params(secpar=secpar)
 
 
-def fusion_keygen(params: Params) -> OneTimeKeyTuple:
+def fusion_keygen(params: Params) -> OneTimeKey:
     left_key_coefs: Matrix = sample_matrix_by_coefs(mod=params.modulus, deg=params.degree,
                                                     num_rows=params.num_rows_sk, num_cols=params.num_cols_sk,
                                                     norm=params.beta_sk, wght=params.omega_sk)
@@ -689,11 +724,11 @@ def fusion_keygen(params: Params) -> OneTimeKeyTuple:
     left_vk_hat: Matrix = params.public_challenge * left_sk_hat
     right_vk_hat: Matrix = params.public_challenge * right_sk_hat
     otvk: OneTimeVerificationKey = OneTimeVerificationKey(left_vk_hat=left_vk_hat, right_vk_hat=right_vk_hat)
-    return OneTimeKeyTuple(otsk=otsk, otvk=otvk)
+    return OneTimeKey(otsk=otsk, otvk=otvk)
 
 
-def fusion_sign(params: Params, otk: OneTimeKeyTuple, msg: str) -> Signature:
-    c_hat: SignatureChallenge = _make_sig_challenge(params=params, otvk=otk.otvk, msg=msg)
+def fusion_sign(params: Params, otk: OneTimeKey, msg: str) -> Signature:
+    c_hat: Challenge = _make_sig_challenge(params=params, otvk=otk.otvk, msg=msg)
     return Signature(signature_hat=otk.otsk.left_sk * c_hat.c_hat + otk.otsk.rght_sk)
 
 

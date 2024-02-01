@@ -27,9 +27,10 @@ _NORM_NOT_IMPLEMENTED_ERR: str = "norm not implemented"
 _NTT_NOT_IMPLEMENTED_ERR: str = "ntt not implemented"
 _WEIGHT_NOT_IMPLEMENTED_ERR: str = "weight not implemented"
 _MUL_BASE_NOT_IMPLEMENTED_ERR: str = "multiplication of base class not implemented"
+_INV_ROOT_MISMATCH_ERR: str = "inverse root mismatch"
 
 # For polynomials.py
-_INVALID_REP_TYPE: str = "invalid representation type"
+_INVALID_REP_TYPE_ERR: str = "invalid representation type"
 
 # For matrices.py
 _MUST_BE_NONEMPTY_ERR: str = "must be nonempty"

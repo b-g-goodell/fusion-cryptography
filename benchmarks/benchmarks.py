@@ -9,7 +9,7 @@ from loguru import logger
 
 from memory_profiler import memory_usage
 
-from fusion.fusion import fusion_setup, fusion_keygen, fusion_sign, aggregate, verify, OneTimeKeyTuple
+from fusion.fusion import fusion_setup, fusion_keygen, fusion_sign, aggregate, verify, OneTimeKey
 
 # Prepare the input data
 SEC_PARAMS: List[int] = [128, 256]
@@ -55,7 +55,7 @@ def benchmark_all() -> None:
             mem_data[secpar]["fusion_setup"].append(mem_taken)
 
             # Call keygen and measure time and memory
-            keys: List[OneTimeKeyTuple] = []
+            keys: List[OneTimeKey] = []
             for _ in range(sub_sample_size * NUM_SUB_SAMPLES):
                 print(".", end="")
                 key, time_taken, mem_taken = benchmark_func(fusion_keygen, a, seed)

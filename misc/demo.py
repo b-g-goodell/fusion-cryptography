@@ -8,7 +8,7 @@ from fusion.fusion import (
     fusion_sign,
     aggregate,
     verify,
-    OneTimeKeyTuple,
+    OneTimeKey,
     Params,
     Signature,
     OneTimeVerificationKey,
@@ -24,7 +24,7 @@ a: Params = fusion_setup(secpar)
 print(f"Setup completed with security parameter {secpar} and seed {seed}.")
 
 # 2. Generate N one-time key pairs
-keys: List[OneTimeKeyTuple] = [fusion_keygen(a) for _ in range(2)]
+keys: List[OneTimeKey] = [fusion_keygen(a) for _ in range(2)]
 print(f"Generated {len(keys)} key pairs.")
 
 # 3. Sign N messages using the key pairs

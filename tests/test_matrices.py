@@ -1,10 +1,7 @@
 import pytest
-from random import randrange
-from typing import List
 from algebra.matrices import _is_algebraic_class, GeneralMatrix
 from api.ntt import find_prou
-from api.polynomials import Polynomial as Poly
-from copy import deepcopy
+from algebra.polynomials import Polynomial as Poly
 
 
 MODULUS_FOR_TESTING: int = 17

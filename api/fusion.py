@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from fusion.fusion import fusion_setup, fusion_keygen, fusion_sign, aggregate, verify, Params, OneTimeKeyTuple, Signature, OneTimeVerificationKey, OneTimeSigningKey, SignatureChallenge
+from fusion.fusion import fusion_setup, fusion_keygen, fusion_sign, aggregate, verify, Params, OneTimeKey, Signature, OneTimeVerificationKey, OneTimeSigningKey, Challenge
 
 def setup(secpar: int) -> Params:
     """
@@ -8,7 +8,7 @@ def setup(secpar: int) -> Params:
     params = fusion_setup(secpar)
     return params
 
-def generate_keys(params: Params, num_keys: int = 1) -> OneTimeKeyTuple | List[OneTimeKeyTuple]:
+def generate_keys(params: Params, num_keys: int = 1) -> OneTimeKey | List[OneTimeKey]:
     """
     Generate a one-time signing key (SK) and one-time verification key (VK) pair.
     """
@@ -16,7 +16,7 @@ def generate_keys(params: Params, num_keys: int = 1) -> OneTimeKeyTuple | List[O
         return fusion_keygen(params)
     return [fusion_keygen(params) for _ in range(num_keys)]
 
-def generate_signature(params: Params, key_pair: OneTimeKeyTuple, message: str) -> Signature:
+def generate_signature(params: Params, key_pair: OneTimeKey, message: str) -> Signature:
     """
     Generate a signature for a given message using the provided key pair.
     """
