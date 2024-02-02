@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 from random import randrange
 from typing import List, Tuple
-from api.ntt import find_prou, bit_reverse_copy, ntt_poly_mult
+from algebra.ntt import find_prou, brv_copy, ntt_poly_mult
 from algebra.errors import _INVALID_REP_TYPE_ERR
 from algebra.polynomials import (
     _PolynomialCoefficientRepresentation as PolyCR,
@@ -27,7 +27,7 @@ ARITHMETIC_TEST_CASES = [
 ]
 ARITHMETIC_TEST_CASES = [
     t + tuple([
-        bit_reverse_copy(t[-1]),
+        brv_copy(t[-1]),
         pow(t[-2], t[1] - 2, t[1]),
     ])
     for t in ARITHMETIC_TEST_CASES
@@ -40,7 +40,7 @@ ARITHMETIC_TEST_CASES = [
 ]
 ARITHMETIC_TEST_CASES = [
     t + tuple([
-        bit_reverse_copy(t[-1]),
+        brv_copy(t[-1]),
         t[1] // 2,
         t[1].bit_length(),
     ])
@@ -106,21 +106,21 @@ def test_arithmetic(deg,mod,root,root_powers,brv_powers,inv_root,inv_root_powers
         assert another_observed_c == observed_c
         # Since expected_c and observed_c are equivalent, we only need one in the rest of this test.
 
-        a_hat: PolyNTTR = a.transform()
-        b_hat: PolyNTTR = b.transform()
-        c_hat: PolyNTTR = observed_c.transform()
+        a_hat: PolyNTTR = a.transform_to_ntt_rep()
+        b_hat: PolyNTTR = b.transform_to_ntt_rep()
+        c_hat: PolyNTTR = observed_c.transform_to_ntt_rep()
         a_hat_times_b_hat: PolyNTTR = a_hat * b_hat
         assert c_hat == a_hat_times_b_hat
 
-        transformed_c_hat: PolyCR = c_hat.transform()
-        transformed_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform()
+        transformed_c_hat: PolyCR = c_hat.transform_to_coef_rep()
+        transformed_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform_to_coef_rep()
         assert observed_c == transformed_c_hat
         assert observed_c == transformed_a_hat_times_b_hat
 
-        inv_a_hat: PolyCR = a_hat.transform()
-        inv_b_hat: PolyCR = b_hat.transform()
-        inv_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform()
-        inv_c_hat: PolyCR = c_hat.transform()
+        inv_a_hat: PolyCR = a_hat.transform_to_coef_rep()
+        inv_b_hat: PolyCR = b_hat.transform_to_coef_rep()
+        inv_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform_to_coef_rep()
+        inv_c_hat: PolyCR = c_hat.transform_to_coef_rep()
         assert inv_a_hat == a
         assert inv_b_hat == b
         assert inv_a_hat_times_b_hat == observed_c
@@ -164,10 +164,10 @@ def test_monomial_products():
                 observed_c: PolyCR = a * b
                 assert expected_c == observed_c
 
-            a_hat: PolyNTTR = a.transform()
-            b_hat: PolyNTTR = b.transform()
+            a_hat: PolyNTTR = a.transform_to_ntt_rep()
+            b_hat: PolyNTTR = b.transform_to_ntt_rep()
             a_hat_times_b_hat: PolyNTTR = a_hat * b_hat
-            inv_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform()
+            inv_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform_to_coef_rep()
             assert inv_a_hat_times_b_hat == observed_c
 
 
@@ -186,7 +186,7 @@ def test_poly_init():
             a: PolyCR = PolyCR(
                 mod=q,
                 vals=tuple(a_coefs))
-            assert a.mod == q
+            assert a.modulus == q
             assert a.deg == d
             assert a.root_order == 2 * d
             assert a.root == root
@@ -237,7 +237,7 @@ def test_poly_add():
                 mod=q,
                 vals=tuple(b_coefs))
             c: PolyCR = a + b
-            assert c.mod == q
+            assert c.modulus == q
             assert c.deg == d
             assert c.root_order == 2 * d
             assert c.root == root
@@ -260,7 +260,7 @@ def test_poly_sub():
                 mod=q,
                 vals=tuple(b_coefs))
             c: PolyCR = a - b
-            assert c.mod == q
+            assert c.modulus == q
             assert c.deg == d
             assert c.root_order == 2 * d
             assert c.root == root
@@ -307,7 +307,7 @@ def test_poly_norm():
                 mod=q,
                 vals=tuple(a_coefs))
             expected_infinity_norm: int = max(abs(x) for x in a._vals)
-            observed_infinity_norm_and_weight: Tuple[int, int] = a.coefs_norm_wght
+            observed_infinity_norm_and_weight: Tuple[int, int] = a.coef_norm_wght
             assert expected_infinity_norm, expected_infinity_norm == observed_infinity_norm_and_weight
 
 
@@ -506,10 +506,8 @@ def test_poly_ntt_mul():
                 c_hat: PolyNTTR = a_hat * 0
             with pytest.raises(TypeError):
                 c_hat: int = 0 * b_hat
-            c_hat: PolyNTTR = a_hat * 1
-            assert c_hat == a_hat
-            c_hat: PolyNTTR = 1 * b_hat
-            assert c_hat == b_hat
+            with pytest.raises(TypeError):
+                c_hat: PolyNTTR = a_hat * 1
 
 
 def test_poly_ntt_rmul():
@@ -565,10 +563,10 @@ def test_transform_2d():
                 mod=q,
                 vals=tuple(c_coefs))
 
-            a_ntt: PolyNTTR = a.transform()
-            b_ntt: PolyNTTR = b.transform()
+            a_ntt: PolyNTTR = a.transform_to_ntt_rep()
+            b_ntt: PolyNTTR = b.transform_to_ntt_rep()
             a_ntt_times_b_ntt: PolyNTTR = a_ntt * b_ntt
-            inv_a_ntt_times_b_ntt: PolyCR = a_ntt_times_b_ntt.transform()
+            inv_a_ntt_times_b_ntt: PolyCR = a_ntt_times_b_ntt.transform_to_coef_rep()
             assert inv_a_ntt_times_b_ntt == c
 
 
@@ -589,14 +587,14 @@ def test_comprehensive():
                 vals=tuple(b_coefs))
 
             # Transformed a and b
-            a_hat: PolyNTTR = a.transform()
-            b_hat: PolyNTTR = b.transform()
+            a_hat: PolyNTTR = a.transform_to_ntt_rep()
+            b_hat: PolyNTTR = b.transform_to_ntt_rep()
 
             # Product of transforms
             a_hat_times_b_hat: PolyNTTR = a_hat * b_hat
 
             # Invert
-            inv_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform()
+            inv_a_hat_times_b_hat: PolyCR = a_hat_times_b_hat.transform_to_coef_rep()
 
             # Check
             assert inv_a_hat_times_b_hat == a * b

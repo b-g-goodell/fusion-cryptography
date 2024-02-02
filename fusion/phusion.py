@@ -1,7 +1,15 @@
-from typing import List, Dict, Any, Tuple, Iterator, Union
-from hashlib import sha3_256, shake_256
+from hashlib import shake_256, sha3_256
+from math import ceil, log2
+from typing import List, Dict, Tuple, Union
+from algebra.sampling import sample_matrix_by_coefs, sample_matrix_by_ntt
+from algebra.errors import (_MODULUS_MISMATCH_ERR, _DEGREE_MISMATCH_ERR, _ROOT_ORDER_MISMATCH_ERR, _ROOT_MISMATCH_ERR,
+                            _DIMENSION_MISMATCH_ERR, _INV_ROOT_MISMATCH_ERR)
+from fusion.errors import (_MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR,
+                           _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR,
+                           _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR)
+from api.errors import DIMENSION_MISMATCH_ERR
 from algebra.polynomials import Polynomial as Poly
-from algebra.matrices import PolynomialMatrix as Mat, compute_lin_combo as _compute_lin_combo
+from algebra.matrices import PolynomialMatrix as Mat
 
 
 # Some global constants
@@ -64,207 +72,149 @@ def shake_256_wrapper(message: str | bytes, num_bytes: int) -> bytes:
     return shake_256(message).digest(num_bytes)
 
 
+# counting bits and bytes
+def bits_for_bdd_coef(secpar: int, beta: int) -> int:
+    """
+    Number of bits to sample an integer from list(range(2*beta+1)) with
+    bias (statistical distance from uniformity) which is O(2**-secpar)
+    """
+    return ceil(log2(2*beta+1)) + secpar
+
+
+def bytes_for_bdd_coef(secpar: int, beta: int) -> int:
+    """
+    Number of bytes to sample an integer from list(range(2*beta+1)) with
+    bias (statistical distance from uniformity) which is O(2**-secpar)
+    """
+    return ceil(bits_for_bdd_coef(secpar=secpar, beta=beta)/8)
+
+
+def bits_for_index(secpar: int, degree: int) -> int:
+    """
+    Number of bits to sample a monomial degree from list(range(degree))
+    with bias (statistical distance from uniformity) which is
+    O(2**-secpar)
+    """
+    if degree < 2:
+        raise ValueError("Must have degree >= 2")
+    return ceil(log2(degree)) + secpar
+
+
+def bytes_for_index(secpar: int, degree: int) -> int:
+    """
+    Number of bytes to sample a monomial X**j with exponent j from
+    list(range(degree)) with bias (statistical distance from uni-
+    formity) which is O(2**-secpar)
+    """
+    return ceil(bits_for_index(secpar=secpar, degree=degree)/8)
+
+
+def bits_for_fy_shuffle(secpar: int, degree: int) -> int:
+    """
+    Number of bits to Fisher-Yates shuffle list(range(degree)) with
+    bias (statistical distance from uniformity) which is O(2**-secpar)
+    """
+    return degree * bits_for_index(secpar=secpar, degree=degree)
+
+
+def bytes_for_fy_shuffle(secpar: int, degree: int) -> int:
+    """
+    Number of bytes to Fisher-Yates shuffle list(range(degree)) with
+    bias (statistical distance from uniformity) which is O(2**-secpar)
+    """
+    return ceil(bits_for_fy_shuffle(secpar=secpar, degree=degree)/8)
+
+
+def bits_for_bdd_poly(secpar: int, beta: int, degree: int, omega: int) -> int:
+    """
+    Number of bits to sample a polynomial which is a sum of omega
+    monomials whose coefficients are in list(range(-beta,beta+1))
+    with bias (statistical distance from uniformity) which is
+    O(2**-secpar)
+    """
+    return omega * bits_for_bdd_coef(secpar=secpar, beta=beta) + bits_for_fy_shuffle(secpar=secpar, degree=degree)
+
+
+def bytes_for_bdd_poly(secpar: int, beta: int, degree: int, omega: int) -> int:
+    """
+    Number of bytes to sample a polynomial which is a sum of omega
+    monomials whose coefficients are in list(range(-beta,beta+1))
+    with bias (statistical distance from uniformity) which is
+    O(2**-secpar)
+    """
+    return ceil(bits_for_bdd_poly(secpar=secpar, beta=beta, degree=degree, omega=omega) / 8)
+
+
+# Typing
+SecretMat: type = Mat
+PublicMat: type = Mat
+SecretPoly: type = Poly
+PublicPoly: type = Poly
+
+
 class Params(object):
     secpar: int
-    one: Poly
-    pubchall: Mat
-    bytes_to_sample_sk_coef: int
-    bytes_to_sample_challenge: int
-    bytes_to_sample_aggregators: int
-    beta_vf: int
-    omega_vf: int
+    capacity: int
+    modulus: int
+    degree: int
+    root_order: int
+    root: int
+    inv_root: int
+    num_rows_pub_challenge: int
     num_rows_sk: int
     num_cols_sk: int
-    num_rows_pubchall: int
-    num_cols_pubchall: int
+    beta_sk: int
+    beta_ch: int
+    beta_ag: int
+    beta_vf_intermediate: int
+    beta_vf: int
+    omega_sk: int
+    omega_ch: int
+    omega_ag: int
+    omega_vf_intermediate: int
+    omega_vf: int
+    public_challenge: Mat
+    sign_pre_hash_dst: str
+    sign_hash_dst: str
+    agg_xof_dst: str
+    bytes_for_one_coef_bdd_by_beta_ch: int
+    bytes_for_one_coef_bdd_by_beta_ag: int
+    bytes_for_fy_shuffle: int
+    bytes_per_sig_chall_poly: int
+    bytes_per_agg_coef_poly: int
 
     def __init__(self, secpar: int):
+        if secpar not in IACR_SUGGESTED_PARAMS:
+            raise ValueError("Invalid security parameter.")
         self.secpar = secpar
-        self.mod = IACR_SUGGESTED_PARAMS[secpar]['modulus']
-        self.deg = IACR_SUGGESTED_PARAMS[secpar]['degree']
-        self.one = Poly(
-            mod=IACR_SUGGESTED_PARAMS[secpar]['modulus'],
-            vals=tuple([1 for _ in range(IACR_SUGGESTED_PARAMS[secpar]['degree'])]),
-            rep_flag='ntt')
-        # self.pubchall = sample()
+        self.capacity = IACR_SUGGESTED_PARAMS[secpar]["capacity"]
+        self.modulus = IACR_SUGGESTED_PARAMS[secpar]["modulus"]
+        self.degree = IACR_SUGGESTED_PARAMS[secpar]["degree"]
+        self.root_order = IACR_SUGGESTED_PARAMS[secpar]["root_order"]
+        self.root = IACR_SUGGESTED_PARAMS[secpar]["root"]
+        self.inv_root = IACR_SUGGESTED_PARAMS[secpar]["inv_root"]
+        self.num_rows_pub_challenge = IACR_SUGGESTED_PARAMS[secpar]["num_rows_pub_challenge"]
+        self.num_rows_sk = IACR_SUGGESTED_PARAMS[secpar]["num_rows_sk"]
+        # self.num_rows_vk = PREFIX_PARAMETERS[secpar]["num_rows_vk"] == self.num_rows_pub_challenge
+        self.num_cols_sk = IACR_SUGGESTED_PARAMS[secpar]["num_cols_sk"]
+        # self.num_cols_vk = PREFIX_PARAMETERS[secpar]["num_cols_vk"] == self.num_cols_sk
+        self.sign_pre_hash_dst = IACR_SUGGESTED_PARAMS[secpar]["sign_pre_hash_dst"]
+        self.sign_hash_dst = IACR_SUGGESTED_PARAMS[secpar]["sign_hash_dst"]
+        self.agg_xof_dst = IACR_SUGGESTED_PARAMS[secpar]["agg_xof_dst"]
+        self.beta_sk = IACR_SUGGESTED_PARAMS[secpar]["beta_sk"]
+        self.beta_ch = IACR_SUGGESTED_PARAMS[secpar]["beta_ch"]
+        self.beta_ag = IACR_SUGGESTED_PARAMS[secpar]["beta_ag"]
+        self.beta_vf_intermediate = IACR_SUGGESTED_PARAMS[secpar]["beta_vf_intermediate"]
+        self.beta_vf = IACR_SUGGESTED_PARAMS[secpar]["beta_vf"]
+        self.omega_sk = IACR_SUGGESTED_PARAMS[secpar]["omega_sk"]
+        self.omega_ch = IACR_SUGGESTED_PARAMS[secpar]["omega_ch"]
+        self.omega_ag = IACR_SUGGESTED_PARAMS[secpar]["omega_ag"]
+        self.omega_vf_intermediate = IACR_SUGGESTED_PARAMS[secpar]["omega_vf_intermediate"]
+        self.omega_vf = IACR_SUGGESTED_PARAMS[secpar]["omega_vf"]
+        self.public_challenge = sample_matrix_by_ntt(modulus=self.modulus, degree=self.degree, num_rows=self.num_rows_pub_challenge, num_cols=self.num_rows_sk)
 
+    def __str__(self) -> str:
+        return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_cols_sk={self.num_cols_sk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_fy_shuffle={self.bytes_for_fy_shuffle})"
 
-class OneTimeSigningKey(object):
-    _val: Mat
-
-    def __init__(self, vals: Mat):
-        self._val = vals
-
-    @property
-    def val(self) -> Mat:
-        return self._val
-
-
-class OneTimeVerificationKey(object):
-    _val: Mat
-
-    def __init__(self, vals: Mat):
-        self._val = vals
-
-    @property
-    def val(self) -> Mat:
-        return self._val
-
-
-class OneTimeKeys(object):
-    _otsk: Tuple[OneTimeSigningKey, OneTimeSigningKey]
-    _otvk: Tuple[OneTimeVerificationKey, OneTimeVerificationKey]
-
-    def __init__(self, otsk: Tuple[OneTimeSigningKey, OneTimeSigningKey], otvk: Tuple[OneTimeVerificationKey, OneTimeVerificationKey]):
-        self._otsk = otsk
-        self._otvk = otvk
-
-    @property
-    def otsk(self) -> Tuple[OneTimeSigningKey, OneTimeSigningKey]:
-        return self._otsk
-
-    @property
-    def otvk(self) -> Tuple[OneTimeVerificationKey, OneTimeVerificationKey]:
-        return self._otvk
-
-    @property
-    def left_sk(self) -> Mat:
-        return self._otsk[0].val
-
-    @property
-    def right_sk(self) -> Mat:
-        return self._otsk[1].val
-
-    @property
-    def left_vk(self) -> Mat:
-        return self._otvk[0].val
-
-    @property
-    def right_vk(self) -> Mat:
-        return self._otvk[1].val
-
-
-class Challenge(object):
-    _val: Poly
-
-    def __init__(self, val: Poly):
-        self._val = val
-
-    @property
-    def val(self) -> Poly:
-        return self._val
-
-
-class Signature(object):
-    _val: Mat
-
-    def __init__(self, val: Mat):
-        self._val = val
-
-    @property
-    def val(self) -> Mat:
-        return self._val
-
-
-class Aggregator(object):
-    _val: Poly
-
-    def __init__(self, val: Poly):
-        self._val = val
-
-    @property
-    def val(self) -> Poly:
-        return self._val
-
-
-def fusion_setup(secpar: int) -> Params:
-    return Params(**IACR_SUGGESTED_PARAMS[secpar])
-
-
-def _bytes_to_sk(params: Params, randomness: bytes) -> Tuple[OneTimeSigningKey, OneTimeSigningKey]:
-    # TODO: Fix this
-    keys = []
-    for i in range(2):
-        keys += [[]]
-        for j in range(params.num_rows_sk):
-            keys[-1] += [[]]
-            for k in range(params.num_cols_sk):
-                keys[-1][-1] += [[]]
-                for l in range(params.deg):
-                    next_bytes, randomness = randomness[:params.bytes_to_sample_sk_coef], randomness[params.bytes_to_sample_sk_coef:]
-                    keys[-1][-1][-1] += [int(next_bytes) % params.mod]
-                next_poly = Poly(mod=params.mod, vals=keys[-1][-1][-1], rep_flag='coefficient')
-    left_keys, right_keys = keys[0], keys[1]
-
-
-def fusion_keygen(params: Params, randomness: bytes) -> OneTimeKeys:
-    left_sk: OneTimeSigningKey = _bytes_to_sk(params=params, randomness=randomness[:len(randomness) // 2])
-    left_vk: OneTimeVerificationKey = OneTimeVerificationKey(vals=params.pubchall * left_sk.val)
-    rght_sk: OneTimeSigningKey = _bytes_to_sk(params=params, randomness=randomness[len(randomness) // 2:])
-    rght_vk: OneTimeVerificationKey = OneTimeVerificationKey(vals=params.pubchall * rght_sk.val)
-    return OneTimeKeys(otsk=(left_sk, rght_sk), otvk=(left_vk, rght_vk))
-
-
-def _bytes_to_ch(params: Params, randomness: bytes) -> Challenge:
-    # TODO: Finish
-    pass
-
-
-def _make_ch(params: Params, otvk: Tuple[OneTimeVerificationKey, OneTimeVerificationKey], message: bytes) -> Challenge:
-    randomness: bytes = shake_256_wrapper(message=str(params)+str(otvk)+str(message), num_bytes=params.bytes_to_sample_challenge)
-    return _bytes_to_ch(params=params, randomness=randomness)
-
-
-def fusion_sign(params: Params, otk: OneTimeKeys, message: bytes) -> Signature:
-    c: Challenge = _make_ch(params, otk.otvk, message)
-    val: Mat = _compute_lin_combo(vectors=[x.val for x in otk.otsk], multipliers=[params.one, c.val])
-    return Signature(val=val)
-
-
-def _bytes_to_ags(params: Params, num_ags: int, randomness: bytes) -> List[Aggregator]:
-    # TODO: Finish
-    pass
-
-
-def _sort_otvks_msgs(otvks: List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], messages: List[bytes]) -> Tuple[List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], List[bytes]]:
-    return zip(*sorted(zip(otvks, messages), key=lambda x: x[0].val))
-
-
-def _make_ch_and_ags(params: Params, otvks: List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], messages: List[bytes]) -> Tuple[List[Challenge], List[Aggregator]]:
-    n: int = len(otvks)
-    srt_otvks, srt_msgs = _sort_otvks_msgs(otvks=otvks, messages=messages)
-    srt_challs: List[Challenge] = []
-    for otvk, message in otvks, messages:
-        srt_challs += [_make_ch(params=params, otvk=otvk, message=message)]
-    b: bytes = shake_256_wrapper(message=str(params)+str(srt_otvks)+str(srt_msgs)+str(srt_challs), num_bytes=params.bytes_to_sample_aggregators*n)
-    aggregators: List[Aggregator] = _bytes_to_ags(params=params, num_ags=n, randomness=b)
-    return srt_challs, aggregators
-
-
-def _sort_otvks_msgs_sigs(otvks: List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], messages: List[bytes], signatures: List[Signature]) -> Tuple[List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], List[bytes], List[Signature]]:
-    return zip(*sorted(zip(otvks, messages, signatures), key=lambda x: x[0].val))
-
-
-def fusion_aggregate(params: Params, otvks: List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], messages: List[bytes], signatures: List[Signature]) -> Signature:
-    srt_otks, srt_msgs, srt_sigs = _sort_otvks_msgs_sigs(otvks=otvks, messages=messages, signatures=signatures)
-    aggregators: List[Aggregator]
-    _, aggregators = _make_ch_and_ags(params, srt_otks, srt_msgs)
-    val: Mat = _compute_lin_combo(vectors=[x.val for x in srt_sigs], multipliers=[x.val for x in aggregators])
-    return Signature(val=val)
-
-
-def _make_target(otvks: List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], challs: List[Challenge], aggregators: List[Aggregator]) -> Mat:
-    vectors = [otvks[i][j].val for i in range(len(otvks)) for j in range(2)]
-    multipliers = [aggregators[i].val if j == 0 else aggregators[i].val*challs[i].val for i in range(len(aggregators)) for j in range(2)]
-    return _compute_lin_combo(vectors=vectors, multipliers=multipliers)
-
-
-def fusion_verify(params: Params, otvks: List[Tuple[OneTimeVerificationKey, OneTimeVerificationKey]], messages: List[bytes], aggregate_signature: Signature) -> bool:
-    srt_otvks, srt_msgs = _sort_otvks_msgs(otvks=otvks, messages=messages)
-    challs: List[Challenge]
-    aggregators: List[Aggregator]
-    challs, aggregators = _make_ch_and_ags(params=params, otvks=srt_otvks, messages=srt_msgs)
-    target: Mat = _make_target(otvks=otvks, challs=challs, aggregators=aggregators)
-    evaluated_signature: Mat = params.pubchall * aggregate_signature.val
-    c, n, w = aggregate_signature.val.coef_norm_wght
-    return evaluated_signature == target and n <= params.beta_vf and w <= params.omega_vf
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__

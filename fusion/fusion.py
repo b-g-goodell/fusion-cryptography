@@ -236,7 +236,7 @@ class OneTimeSigningKey(object):
             for f in next_row:
                 if not isinstance(f, Poly):
                     raise TypeError(_MUST_BE_POLY_ERR)
-                elif f.ntt_rep.mod != params.modulus:
+                elif f.ntt_rep.modulus != params.modulus:
                     raise ValueError(_MODULUS_MISMATCH_ERR)
                 elif f.ntt_rep.deg != params.degree:
                     raise ValueError(_DEGREE_MISMATCH_ERR)
@@ -297,7 +297,7 @@ class OneTimeVerificationKey(object):
             for next_poly in next_row:
                 if not isinstance(next_poly, Poly):
                     raise TypeError(_MUST_BE_POLY_ERR)
-                elif next_poly.ntt_rep.mod != params.modulus:
+                elif next_poly.ntt_rep.modulus != params.modulus:
                     raise ValueError(_MODULUS_MISMATCH_ERR)
                 elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep._vals) != params.degree:
                     raise ValueError(_DEGREE_MISMATCH_ERR)
@@ -372,7 +372,7 @@ class Challenge(object):
     def __init__(self, params: Params, val: Poly):
         if not isinstance(val, Poly):
             raise TypeError(_MUST_BE_POLY_ERR)
-        elif val.ntt_rep.mod != params.modulus:
+        elif val.ntt_rep.modulus != params.modulus:
             raise ValueError(_MODULUS_MISMATCH_ERR)
         elif val.ntt_rep.deg != params.degree or len(val.ntt_rep._vals) != params.degree:
             raise ValueError(_DEGREE_MISMATCH_ERR)

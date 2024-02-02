@@ -47,14 +47,14 @@ def test_general_matrix_addition():
     m2 = GeneralMatrix([[MockElement(5), MockElement(6)], [MockElement(7), MockElement(8)]])
     result = m1 + m2
     expected = GeneralMatrix([[MockElement(6), MockElement(8)], [MockElement(10), MockElement(12)]])
-    assert result.vals == expected.vals
+    assert result._vals == expected._vals
 
 
 def test_general_matrix_negation():
     m1 = GeneralMatrix([[MockElement(1), MockElement(-2)], [MockElement(-3), MockElement(4)]])
     result = -m1
     expected = GeneralMatrix([[MockElement(-1), MockElement(2)], [MockElement(3), MockElement(-4)]])
-    assert result.vals == expected.vals
+    assert result._vals == expected._vals
 
 
 def test_general_matrix_subtraction():
@@ -62,7 +62,7 @@ def test_general_matrix_subtraction():
     m2 = GeneralMatrix([[MockElement(1), MockElement(2)], [MockElement(3), MockElement(4)]])
     result = m1 - m2
     expected = GeneralMatrix([[MockElement(9), MockElement(18)], [MockElement(27), MockElement(36)]])
-    assert result.vals == expected.vals
+    assert result._vals == expected._vals
 
 
 def test_general_matrix_multiplication():
@@ -70,7 +70,7 @@ def test_general_matrix_multiplication():
     m2 = GeneralMatrix([[MockElement(5), MockElement(6)], [MockElement(7), MockElement(8)]])
     result = m1 * m2
     expected = GeneralMatrix([[MockElement(19), MockElement(22)], [MockElement(43), MockElement(50)]])
-    assert result.vals == expected.vals
+    assert result._vals == expected._vals
 
 
 def test_matrix_dimension_mismatch_addition():
