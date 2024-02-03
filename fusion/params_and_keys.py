@@ -1,16 +1,7 @@
-from hashlib import shake_256, sha3_256
-from math import ceil, log2
-from typing import List, Dict, Tuple, Union
-from algebra.sampling import sample_matrix_by_coefs, sample_matrix_by_ntt
-from algebra.errors import (_MODULUS_MISMATCH_ERR, _DEGREE_MISMATCH_ERR, _ROOT_ORDER_MISMATCH_ERR, _ROOT_MISMATCH_ERR,
-                            _DIMENSION_MISMATCH_ERR, _INV_ROOT_MISMATCH_ERR)
-from fusion.errors import (_MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR,
-                           _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR,
-                           _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR)
-from api.errors import DIMENSION_MISMATCH_ERR
+from typing import Dict, Union, Tuple, List
 from algebra.polynomials import Polynomial as Poly
 from algebra.matrices import PolynomialMatrix as Mat
-
+from fusion.sampling import sample_matrix_by_ntt
 
 # Some global constants
 PRIME: int = 2147465729
@@ -57,99 +48,22 @@ for secpar in [128, 256]:
     IACR_SUGGESTED_PARAMS[secpar]["beta_vf"] = (IACR_SUGGESTED_PARAMS[secpar]["capacity"] * max(0, min(IACR_SUGGESTED_PARAMS[secpar]["degree"], IACR_SUGGESTED_PARAMS[secpar]["omega_ag"])) * IACR_SUGGESTED_PARAMS[secpar]["beta_ag"] * IACR_SUGGESTED_PARAMS[secpar]["beta_vf_intermediate"])
 
 
-# Simple wrappers for sha3 and shake
-def sha3_256_wrapper(message: str | bytes) -> bytes:
-    """ Simple wrapper for sha3_256 """
-    if isinstance(message, str):
-        return sha3_256(message.encode('utf-8')).digest()
-    return sha3_256(message).digest()
-
-
-def shake_256_wrapper(message: str | bytes, num_bytes: int) -> bytes:
-    """ Simple wrapper for shake_256 """
-    if isinstance(message, str):
-        return shake_256(message.encode('utf-8')).digest(num_bytes)
-    return shake_256(message).digest(num_bytes)
-
-
-# counting bits and bytes
-def bits_for_bdd_coef(secpar: int, beta: int) -> int:
-    """
-    Number of bits to sample an integer from list(range(2*beta+1)) with
-    bias (statistical distance from uniformity) which is O(2**-secpar)
-    """
-    return ceil(log2(2*beta+1)) + secpar
-
-
-def bytes_for_bdd_coef(secpar: int, beta: int) -> int:
-    """
-    Number of bytes to sample an integer from list(range(2*beta+1)) with
-    bias (statistical distance from uniformity) which is O(2**-secpar)
-    """
-    return ceil(bits_for_bdd_coef(secpar=secpar, beta=beta)/8)
-
-
-def bits_for_index(secpar: int, degree: int) -> int:
-    """
-    Number of bits to sample a monomial degree from list(range(degree))
-    with bias (statistical distance from uniformity) which is
-    O(2**-secpar)
-    """
-    if degree < 2:
-        raise ValueError("Must have degree >= 2")
-    return ceil(log2(degree)) + secpar
-
-
-def bytes_for_index(secpar: int, degree: int) -> int:
-    """
-    Number of bytes to sample a monomial X**j with exponent j from
-    list(range(degree)) with bias (statistical distance from uni-
-    formity) which is O(2**-secpar)
-    """
-    return ceil(bits_for_index(secpar=secpar, degree=degree)/8)
-
-
-def bits_for_fy_shuffle(secpar: int, degree: int) -> int:
-    """
-    Number of bits to Fisher-Yates shuffle list(range(degree)) with
-    bias (statistical distance from uniformity) which is O(2**-secpar)
-    """
-    return degree * bits_for_index(secpar=secpar, degree=degree)
-
-
-def bytes_for_fy_shuffle(secpar: int, degree: int) -> int:
-    """
-    Number of bytes to Fisher-Yates shuffle list(range(degree)) with
-    bias (statistical distance from uniformity) which is O(2**-secpar)
-    """
-    return ceil(bits_for_fy_shuffle(secpar=secpar, degree=degree)/8)
-
-
-def bits_for_bdd_poly(secpar: int, beta: int, degree: int, omega: int) -> int:
-    """
-    Number of bits to sample a polynomial which is a sum of omega
-    monomials whose coefficients are in list(range(-beta,beta+1))
-    with bias (statistical distance from uniformity) which is
-    O(2**-secpar)
-    """
-    return omega * bits_for_bdd_coef(secpar=secpar, beta=beta) + bits_for_fy_shuffle(secpar=secpar, degree=degree)
-
-
-def bytes_for_bdd_poly(secpar: int, beta: int, degree: int, omega: int) -> int:
-    """
-    Number of bytes to sample a polynomial which is a sum of omega
-    monomials whose coefficients are in list(range(-beta,beta+1))
-    with bias (statistical distance from uniformity) which is
-    O(2**-secpar)
-    """
-    return ceil(bits_for_bdd_poly(secpar=secpar, beta=beta, degree=degree, omega=omega) / 8)
-
-
 # Typing
 SecretMat: type = Mat
 PublicMat: type = Mat
 SecretPoly: type = Poly
 PublicPoly: type = Poly
+OneTimeSigningKey: type = Tuple[SecretMat, ...]
+OneTimeVerificationKey: type = Tuple[PublicMat, ...]
+OneTimeKeyTuple: type = Tuple[OneTimeSigningKey, OneTimeVerificationKey]
+
+
+def parse_bytes_as_public_challenge(deg: int, modulus: int, rows: int, cols: int, randomness: bytes) -> PublicMat:
+    values: List[List[Poly]] = []
+    for i in range(rows):
+        values += [[]]
+        for j in range(cols):
+            values[-1] += [parse_bytes_as_poly]
 
 
 class Params(object):
@@ -173,7 +87,7 @@ class Params(object):
     omega_ag: int
     omega_vf_intermediate: int
     omega_vf: int
-    public_challenge: Mat
+    public_challenge: PublicMat
     sign_pre_hash_dst: str
     sign_hash_dst: str
     agg_xof_dst: str
@@ -183,10 +97,11 @@ class Params(object):
     bytes_per_sig_chall_poly: int
     bytes_per_agg_coef_poly: int
 
-    def __init__(self, secpar: int):
+    def __init__(self, secpar: int, seed: bytes):
         if secpar not in IACR_SUGGESTED_PARAMS:
             raise ValueError("Invalid security parameter.")
         self.secpar = secpar
+        self.seed = seed
         self.capacity = IACR_SUGGESTED_PARAMS[secpar]["capacity"]
         self.modulus = IACR_SUGGESTED_PARAMS[secpar]["modulus"]
         self.degree = IACR_SUGGESTED_PARAMS[secpar]["degree"]
@@ -211,7 +126,8 @@ class Params(object):
         self.omega_ag = IACR_SUGGESTED_PARAMS[secpar]["omega_ag"]
         self.omega_vf_intermediate = IACR_SUGGESTED_PARAMS[secpar]["omega_vf_intermediate"]
         self.omega_vf = IACR_SUGGESTED_PARAMS[secpar]["omega_vf"]
-        self.public_challenge = sample_matrix_by_ntt(modulus=self.modulus, degree=self.degree, num_rows=self.num_rows_pub_challenge, num_cols=self.num_rows_sk)
+        self.public_challenge = parse_bytes_as_public_challenge(IACR_SUGGESTED_PARAMS[secpar]["public_challenge"])
+        # self.public_challenge = sample_matrix_by_ntt(modulus=self.modulus, degree=self.degree, num_rows=self.num_rows_pub_challenge, num_cols=self.num_rows_sk)
 
     def __str__(self) -> str:
         return f"Params(secpar={self.secpar}, capacity={self.capacity}, modulus={self.modulus}, degree={self.degree}, root_order={self.root_order}, root={self.root}, inv_root={self.inv_root}, num_rows_pub_challenge={self.num_rows_pub_challenge}, num_rows_sk={self.num_rows_sk}, num_cols_sk={self.num_cols_sk}, beta_sk={self.beta_sk}, beta_ch={self.beta_ch}, beta_ag={self.beta_ag}, beta_vf={self.beta_vf}, omega_sk={self.omega_sk}, omega_ch={self.omega_ch}, omega_ag={self.omega_ag}, omega_vf={self.omega_vf}, public_challenge={str(self.public_challenge)}, sign_pre_hash_dst={self.sign_pre_hash_dst}, sign_hash_dst={self.sign_hash_dst}, agg_xof_dst={self.agg_xof_dst}, bytes_for_one_coef_bdd_by_beta_ch={self.bytes_for_one_coef_bdd_by_beta_ch}, bytes_for_one_coef_bdd_by_beta_ag={self.bytes_for_one_coef_bdd_by_beta_ag}, bytes_for_fy_shuffle={self.bytes_for_fy_shuffle})"

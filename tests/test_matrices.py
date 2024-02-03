@@ -1,6 +1,6 @@
 import pytest
 from algebra.matrices import _is_algebraic_class, GeneralMatrix
-from api.ntt import find_prou
+from algebra.ntt import find_prou
 from algebra.polynomials import Polynomial as Poly
 
 

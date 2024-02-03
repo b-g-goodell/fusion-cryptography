@@ -1,7 +1,7 @@
 from secrets import randbits, randbelow
 from typing import List
-from api.polynomials import Polynomial as Poly
-from api.matrices import Matrix
+from algebra.polynomials import Polynomial as Poly
+from algebra.matrices import PolynomialMatrix as Mat
 
 
 def sample_poly_by_coefs(mod: int, deg: int, norm: int, wght: int) -> Poly:
@@ -17,22 +17,18 @@ def sample_poly_by_coefs(mod: int, deg: int, norm: int, wght: int) -> Poly:
         for i in range(deg - 1, 0, -1):
             j = randbelow(i + 1)
             coefficients[i], coefficients[j] = coefficients[j], coefficients[i]
-    return Poly(mod=mod, vals=coefficients, rep_flag='coefficient')
+    return Poly(mod=mod, vals=tuple(coefficients), rep_flag='coefficient')
 
 
 def sample_poly_by_ntt(mod: int, deg: int) -> Poly:
     values: List[int] = [randbelow(mod) - (mod // 2) for _ in range(deg)]
-    return Poly(mod=mod, vals=values, rep_flag='ntt')
+    return Poly(mod=mod, vals=tuple(values), rep_flag='ntt')
 
 
-def sample_matrix_by_coefs(mod: int, deg: int, num_rows: int, num_cols: int, norm: int, wght: int) -> Matrix:
-    return Matrix(matrix=[
-        [sample_poly_by_coefs(mod=mod, deg=deg, norm=norm, wght=wght) for j in range(num_cols)]
-        for i in range(num_rows)])
+def sample_matrix_by_coefs(mod: int, deg: int, num_rows: int, num_cols: int, norm: int, wght: int) -> Mat:
+    return Mat(vals=tuple([tuple([sample_poly_by_coefs(mod=mod, deg=deg, norm=norm, wght=wght) for j in range(num_cols)]) for i in range(num_rows)]))
 
 
-def sample_matrix_by_ntt(modulus: int, degree: int, num_rows: int, num_cols: int) -> Matrix:
-    matrix: List[List[Poly]] = [[sample_poly_by_ntt(mod=modulus, deg=degree)
-                                 for j in range(num_cols)] for i in range(num_rows)]
-    return Matrix(matrix=matrix)
+def sample_matrix_by_ntt(modulus: int, degree: int, num_rows: int, num_cols: int) -> Mat:
+    return Mat(vals=tuple([tuple([sample_poly_by_ntt(mod=modulus, deg=degree) for j in range(num_cols)]) for i in range(num_rows)]))
 

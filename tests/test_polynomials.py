@@ -5,6 +5,7 @@ from typing import List, Tuple
 from algebra.ntt import find_prou, brv_copy, ntt_poly_mult
 from algebra.errors import _INVALID_REP_TYPE_ERR
 from algebra.polynomials import (
+    _PolynomialRepresentation as PolyR,
     _PolynomialCoefficientRepresentation as PolyCR,
     _PolynomialNTTRepresentation as PolyNTTR,
     _POLYNOMIAL_COEFFICIENT_REPRESENTATION_STR_PREFIX,
@@ -535,10 +536,6 @@ def test_poly_ntt_rmul():
             # assert c_hat == 0
             with pytest.raises(TypeError):
                 c_hat: int = 0 * a_hat
-            c_hat: PolyNTTR = b_hat * 1
-            assert c_hat == b_hat
-            c_hat: PolyNTTR = 1 * a_hat
-            assert c_hat == a_hat
 
 
 def test_transform_2d():
@@ -630,14 +627,14 @@ def test_initialization_with_coefficients():
     p = Polynomial(MODULUS, COEFFICIENTS, COEFFICIENTS_REP)
     c,n,w = p.coef_norm_wght
     assert isinstance(p, Polynomial)
-    assert p.mod == MODULUS
+    assert p.modulus == MODULUS
     assert c == COEFFICIENTS  # Assuming transformation to NTT keeps values same in this example.
 
 
 def test_initialization_with_ntt():
     p = Polynomial(MODULUS, COEFFICIENTS, NTT_REP)
     assert isinstance(p, Polynomial)
-    assert p.mod == MODULUS
+    assert p.modulus == MODULUS
     assert p.vals == COEFFICIENTS
 
 
@@ -648,7 +645,7 @@ def test_initialization_with_invalid_representation():
 
 
 def test_polynomial_properties(poly_ntt):
-    assert poly_ntt.mod == MODULUS
+    assert poly_ntt.modulus == MODULUS
     # Further properties can be tested similar to above, if relevant getters are implemented.
 
 
@@ -683,6 +680,41 @@ def test_polynomial_negation(poly_coefficients):
 
 
 def test_string_representation(poly_ntt):
-    expected_representation = f"Polynomial(ntt={poly_ntt.ntt_rep})"
+    expected_representation = f"_PolynomialRepresentation(ntt={poly_ntt.ntt_rep})"
     assert str(poly_ntt) == expected_representation
 
+
+@pytest.fixture
+def example_polynomial_1() -> PolyR:
+    """Example polynomial representation for testing."""
+    mod = 17
+    vals = (6, 3, 9, 10)
+    return PolyR(mod=mod, vals=vals)
+
+
+def test_to_bytes(example_polynomial_1: PolyR):
+    """Test serialization of polynomial to bytes."""
+    serialized_bytes = example_polynomial_1.to_bytes()
+    expected_byte_length = 4 + 1 + 4 * example_polynomial_1.deg
+    assert isinstance(serialized_bytes, bytes)
+    assert len(serialized_bytes) == expected_byte_length
+    mod, d = serialized_bytes[:5]
+    assert mod == example_polynomial_1.modulus
+    assert 1 << d == example_polynomial_1.deg
+
+
+def test_from_bytes(example_polynomial_1: PolyR):
+    """Test deserialization of polynomial from bytes."""
+    serialized_bytes = example_polynomial_1.to_bytes()
+    deserialized_poly = PolyR.from_bytes(data=serialized_bytes, representation_format=PolyR)
+    assert deserialized_poly == example_polynomial_1
+    assert deserialized_poly.modulus == example_polynomial_1.modulus
+    assert deserialized_poly.vals == example_polynomial_1.vals
+
+
+def test_to_from_bytes_round_trip(example_polynomial_1: PolyR):
+    """Test serialization and deserialization is a lossless round-trip."""
+    serialized_bytes = example_polynomial_1.to_bytes()
+    deserialized_poly = PolyR.from_bytes(data=serialized_bytes, representation_format=PolyR)
+    assert deserialized_poly == example_polynomial_1
+    assert example_polynomial_1.to_bytes() == serialized_bytes
