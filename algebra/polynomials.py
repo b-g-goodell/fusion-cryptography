@@ -6,7 +6,7 @@ A Polynomial class for handling fast arithmetic in constant-time.
 Author: Brandon G Goodell
 """
 from typing import List, Tuple, Union, Any, Type
-from algebra.ntt import ntt, cent, is_ntt_friendly, find_prou
+from algebra.ntt import ntt, cent, _is_ntt_friendly, find_prou
 from algebra.errors import (_MUST_BE_INT_ERR, _MUST_HAVE_PROU_ERR, _TYPE_MISMATCH_ERR, _NORM_NOT_IMPLEMENTED_ERR,
                             _MUL_BASE_NOT_IMPLEMENTED_ERR, _INVALID_REP_TYPE_ERR, _MUST_BE_TUPLE_ERR)
 import struct
@@ -85,7 +85,7 @@ class _PolynomialRepresentation:
             raise TypeError(_MUST_BE_TUPLE_ERR)
         elif not all(isinstance(i, int) for i in vals):
             raise TypeError(_MUST_BE_INT_ERR)
-        elif not is_ntt_friendly(mod=mod, deg=len(vals)):
+        elif not _is_ntt_friendly(mod=mod, deg=len(vals)):
             raise ValueError(_MUST_HAVE_PROU_ERR)
         self._modulus = mod
         self._vals = vals

@@ -8,8 +8,9 @@ Author: Brandon G Goodell
 from math import ceil as _ceil
 from copy import deepcopy as _deepcopy
 from typing import Dict as _Dict, Tuple as _Tuple, List as _List, Union as _Union
-from algebra.errors import (_MUST_BE_INT_ERR, _MUST_BE_LIST_ERR, _MUST_BE_POS_INT_ERR, _MUST_HAVE_PROU_ERR, 
-                            _NO_PROU_FOUND_ERR, _MUST_BE_ODD_PRIME_ERR, _INVALID_NTT_INPUT_ERR)
+from algebra.errors import (_MUST_BE_INT_ERR, _MUST_BE_LIST_ERR, _MUST_BE_POS_INT_ERR,
+                            _NO_PROU_FOUND_ERR, _MUST_BE_ODD_PRIME_ERR, _INVALID_NTT_INPUT_ERR,
+                            _MUST_BE_POS_INT_POW_2_ERR)
 
 # Caching dictionaries
 _ODD_PRIME_CACHE: _Dict[int, bool] = {}
@@ -24,7 +25,7 @@ _MOD_HALFMOD_LOGMOD_CACHE: _Dict[int, _Tuple[int, int]] = {}
 _BRV_ROOTS_AND_INV_ROOTS_CACHE: _Dict[_Tuple[int, int], _Tuple[_List[int], _List[int]]] = {}
 
 
-# Functions
+# Cached boolean functions
 def _is_odd_prime(val: int) -> bool:
     """
     Private, cached function for checking if x is an odd prime number.
@@ -35,8 +36,7 @@ def _is_odd_prime(val: int) -> bool:
     :rtype: bool
     """
     if val not in _ODD_PRIME_CACHE:
-        _ODD_PRIME_CACHE[val] = isinstance(val, int)
-        _ODD_PRIME_CACHE[val] = _ODD_PRIME_CACHE[val] and val >= 3
+        _ODD_PRIME_CACHE[val] = isinstance(val, int) and val >= 3
         _ODD_PRIME_CACHE[val] = _ODD_PRIME_CACHE[val] and all(val % i != 0 for i in range(2, _ceil(val ** 0.5) + 1))
     return _ODD_PRIME_CACHE[val]
 
@@ -57,26 +57,6 @@ def _is_pos_pow_two(val: int) -> bool:
     return _POW_TWO_CACHE[val]
 
 
-def is_ntt_friendly(mod: int, deg: int) -> bool:
-    """
-    Private, cached function foir checking if a modulus has a primitive root of unity of order 2*deg.
-
-    :param mod: A modulus to check for having a primitive root of unity of order 2*deg.
-    :type mod: int
-    :param deg: The degree of the polynomial.
-    :type deg: int
-    :return: True if mod has a primitive root of unity of order 2*deg, False otherwise.
-    :rtype: bool
-    """
-    if (mod, deg) not in _HAS_PROU_CACHE:
-        _HAS_PROU_CACHE[(mod, deg)] = isinstance(mod, int)
-        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and isinstance(deg, int)
-        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and _is_odd_prime(val=mod)
-        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and _is_pos_pow_two(val=deg)
-        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and (mod - 1) % (2 * deg) == 0
-    return _HAS_PROU_CACHE[(mod, deg)]
-
-
 def _is_rou(root: int, mod: int, deg: int) -> bool:
     """
     Private, cached function for determining if an integer is a root of unity of order 2*deg modulo mod.
@@ -91,7 +71,7 @@ def _is_rou(root: int, mod: int, deg: int) -> bool:
     :rtype: bool
     """
     if (root, mod, deg) not in _ROU_CACHE:
-        _ROU_CACHE[(root, mod, deg)] = is_ntt_friendly(mod=mod, deg=deg)
+        _ROU_CACHE[(root, mod, deg)] = _is_ntt_friendly(mod=mod, deg=deg)
         _ROU_CACHE[(root, mod, deg)] = _ROU_CACHE[(root, mod, deg)] and isinstance(root, int)
         _ROU_CACHE[(root, mod, deg)] = _ROU_CACHE[(root, mod, deg)] and pow(base=root, exp=2 * deg, mod=mod) == 1
     return _ROU_CACHE[(root, mod, deg)]
@@ -136,23 +116,65 @@ def _is_root_inverse(root: int, inv_root: int, mod: int) -> bool:
     return _ROOT_INVERSE_CACHE[(root, inv_root, mod)]
 
 
-def find_prou(mod: int, deg: int) -> int:
+def _is_ntt_friendly(mod: int, deg: int) -> bool:
     """
-    Public, cached function for finding a primitive root of order 2*deg modulo mod where mod and deg are ntt-friendly.
-    Computes with a naive loop that first checks 2, then 3, then 4...
+    Private, cached function foir checking if a modulus has a primitive root of unity of order 2*deg.
 
     :param mod: A modulus to check for having a primitive root of unity of order 2*deg.
     :type mod: int
     :param deg: The degree of the polynomial.
     :type deg: int
-    :return: A primitive root of order 2*deg modulo mod.
-    :rtype: int
-    :raises ValueError: If mod and deg are not ntt-friendly.
-    :raises RuntimeError: If no primitive root is found despite that mod and deg are ntt-friendly.
+    :return: True if mod has a primitive root of unity of order 2*deg, False otherwise.
+    :rtype: bool
     """
-    if not is_ntt_friendly(mod=mod, deg=deg):
-        raise ValueError(_MUST_HAVE_PROU_ERR)
-    elif (mod, deg) not in _FIND_PROU_CACHE:
+    if (mod, deg) not in _HAS_PROU_CACHE:
+        _HAS_PROU_CACHE[(mod, deg)] = isinstance(mod, int)
+        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and isinstance(deg, int)
+        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and _is_odd_prime(val=mod)
+        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and _is_pos_pow_two(val=deg)
+        _HAS_PROU_CACHE[(mod, deg)] = _HAS_PROU_CACHE[(mod, deg)] and (mod - 1) % (2 * deg) == 0
+    return _HAS_PROU_CACHE[(mod, deg)]
+
+
+# Functionality
+# find_prou - find a primitive root of unity
+_NOT_NTT_FRIENDLY_ERR: str = "degree-modulus pair not ntt-friendly"
+
+
+class FindProuError(Exception):
+    def __init__(self, message: str = _NOT_NTT_FRIENDLY_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _check_find_prou(mod: int, deg: int):
+    """
+    Raise MustHaveProuError if mod and deg are not ntt-friendly.
+
+    :param mod: A modulus to check for having a primitive root of unity of order 2*deg.
+    :type mod: int
+    :param deg: The degree of the polynomial.
+    :type deg: int
+    :raises MustHaveProuError: If mod and deg are not ntt-friendly.
+    """
+    if not _is_ntt_friendly(mod=mod, deg=deg):
+        raise FindProuError
+
+
+def _find_prou(mod: int, deg: int) -> int:
+    """
+    Private, cached function to compute primitive root of unity of order 2*deg modulo mod where mod and deg are
+    ntt-friendly. Computes with a naive loop that first checks 2, then 3, then 4, and so on.
+
+    :param mod: A modulus to check for having a primitive root of unity of order 2*deg.
+    :type mod: int
+    :param deg: The degree of the polynomial.
+    :type deg: int
+    :return: A primitive root of unity of order 2*deg modulo mod.
+    :rtype: int
+    :raises RuntimeError: If no primitive root is found despite that mod and deg are ntt-friendly (should not happen).
+    """
+    if (mod, deg) not in _FIND_PROU_CACHE:
         _FIND_PROU_CACHE[(mod, deg)] = None
         r: int = 2
         while r < mod and not _is_prou(root=r, mod=mod, deg=deg):
@@ -163,7 +185,93 @@ def find_prou(mod: int, deg: int) -> int:
     return _FIND_PROU_CACHE[(mod, deg)]
 
 
-def _brv_indices(val: int) -> _List[int]:
+def find_prou(mod: int, deg: int) -> int:
+    """
+    Public function to compute primitive root of unity of order 2*deg modulo mod where mod and deg are ntt-friendly.
+
+    :param mod: A modulus to check for having a primitive root of unity of order 2*deg.
+    :type mod: int
+    :param deg: The degree of the polynomial.
+    :type deg: int
+    :return: A primitive root of unity of order 2*deg modulo mod.
+    :rtype: int
+    :raises MustHaveProuError: If mod and deg are not ntt-friendly.
+    """
+    _check_find_prou(mod=mod, deg=deg)
+    return _find_prou(mod=mod, deg=deg)
+
+
+# _brv_indices - generate the permutation to bit-reverse indices in a list of power-2 length
+_GENERAL_BRV_INDICES_ERR : str = "BRV indices validation error"
+
+
+class BRVIndicesValidationError(Exception):
+    def __init__(self, message: str = _GENERAL_BRV_INDICES_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class BRVIndicesMustBeIntError(BRVIndicesValidationError):
+    def __init__(self, message: str = _MUST_BE_INT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class BRVIndicesMustBeStrictlyPostiive(BRVIndicesValidationError):
+    def __init__(self, message: str = _MUST_BE_POS_INT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class BRVIndicesMustBePowerOfTwoError(BRVIndicesValidationError):
+    def __init__(self, message: str = _MUST_BE_POS_INT_POW_2_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _is_brv_indices_valid(val: int) -> bool:
+    """
+    Private function for checking if input to bit-reversed indices is valid.
+
+    :param val:
+    :type val: int
+    :return: boolean indicating whether input val is a positive power of 2.
+    :rtype: bool
+    """
+    return isinstance(val, int) and _is_pos_pow_two(val=val)
+
+
+def _check_brv_indices(val: int):
+    """
+    Private function for checking if input to bit-reversed indices is valid.
+
+    :param val:
+    :type val: int
+    :raises BRVIndicesValidationError: If val is not a positive power of 2.
+    """
+    if not isinstance(val, int):
+        raise BRVIndicesMustBeIntError
+    elif val < 1:
+        raise BRVIndicesMustBeStrictlyPostiive
+    elif not _is_pos_pow_two(val=val):
+        raise BRVIndicesMustBePowerOfTwoError
+
+
+def __brv_indices(val: int) -> list[int]:
+    """
+    Private, cached function for computing bit-reversed indices of a list of length val.
+
+    :param val:
+    :type val: int
+    :return: list of bit-reversal-permuted indices.
+    """
+    if val not in _REV_IDX_CACHE:
+        k: int = val.bit_length() - 1
+        _REV_IDX_CACHE[val] = [int(bin(i)[2:].zfill(k)[::-1], 2) for i in range(val)]
+    return _REV_IDX_CACHE[val]
+
+
+def _brv_indices(val: int) -> list[int]:
     """
     Private, cached function for computing bit-reversed indices of a list of length val.
 
@@ -171,17 +279,45 @@ def _brv_indices(val: int) -> _List[int]:
     :type val: int
     :return: A list of bit-reversed indices.
     :rtype: List[int]
-    :raises TypeError: If val is not an integer.
-    :raises ValueError: If val is not a positive power of 2.
+    :raises BRVIndicesValidationError: If val is not a positive power of 2.
     """
-    if not isinstance(val, int):
-        raise TypeError(_MUST_BE_INT_ERR)
-    elif not _is_pos_pow_two(val=val):
-        raise ValueError(_MUST_BE_POS_INT_ERR)
-    elif val not in _REV_IDX_CACHE:
-        k: int = val.bit_length() - 1
-        _REV_IDX_CACHE[val] = [int(bin(i)[2:].zfill(k)[::-1], 2) for i in range(val)]
-    return _REV_IDX_CACHE[val]
+    _check_brv_indices(val=val)
+    return __brv_indices(val=val)
+
+
+# brv_copy - compute a copy of a list, permuting indices by bit-reversal
+_GENERAL_BRV_COPY_ERR: str = "BRV copy validation error"
+
+
+class BRVCopyValidationError(Exception):
+    def __init__(self, message: str = _GENERAL_BRV_COPY_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class BRVCopyMustBeListError(BRVCopyValidationError):
+    def __init__(self, message: str = _MUST_BE_LIST_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _check_brv_copy(val: list):
+    if not isinstance(val, list):
+        raise BRVCopyMustBeListError
+
+
+def _brv_copy(val: list) -> list:
+    """
+    Private function for computing a copy of 'val', permuting indices by bit-reversal. Do not cache.
+
+    :param val: A list of integers.
+    :type val: list
+    :return: A list of integers permuted by bit-reversal.
+    :rtype: list
+    :raises TypeError: If val is not a list.
+    """
+    brvd_indices: _List[int] = _brv_indices(val=len(val))
+    return [val[i] for i in brvd_indices]
 
 
 def brv_copy(val: list) -> list:
@@ -194,12 +330,10 @@ def brv_copy(val: list) -> list:
     :rtype: list
     :raises TypeError: If val is not a list.
     """
-    if not isinstance(val, list):
-        raise TypeError(_MUST_BE_LIST_ERR)
-    brvd_indices: _List[int] = _brv_indices(val=len(val))
-    return [val[i] for i in brvd_indices]
+    _check_brv_copy(val=val)
+    return _brv_copy(val=val)
 
-
+# brv_root_and_inv_root_powers
 def _brv_root_and_inv_root_powers(deg: int, mod: int) -> _Tuple[_List[int], _List[int]]:
     """
     Private, cached function for computing the primitive root of unity of order 2*deg modulo mod and its inverse, and
@@ -213,8 +347,8 @@ def _brv_root_and_inv_root_powers(deg: int, mod: int) -> _Tuple[_List[int], _Lis
     :rtype: Tuple[List[int], List[int]]
     :raises ValueError: If mod and deg are not ntt-friendly.
     """
-    if not is_ntt_friendly(mod=mod, deg=deg):
-        raise ValueError(_MUST_HAVE_PROU_ERR)
+    if not _is_ntt_friendly(mod=mod, deg=deg):
+        raise ValueError(_NOT_NTT_FRIENDLY_ERR)
     elif (deg, mod) not in _BRV_ROOTS_AND_INV_ROOTS_CACHE:
         root: int = find_prou(mod=mod, deg=deg)
         inv_root: int = pow(base=root, exp=mod-2, mod=mod)
@@ -281,7 +415,7 @@ def _is_ntt_valid(val: _List[int], mod: int, inv_flag: bool) -> bool:
     """
     val_is_list: bool = isinstance(val, list)
     deg: int = len(val)
-    deg_mod_is_ntt_friendly: bool = is_ntt_friendly(mod=mod, deg=deg)
+    deg_mod_is_ntt_friendly: bool = _is_ntt_friendly(mod=mod, deg=deg)
     inv_flag_is_bool: bool = isinstance(inv_flag, bool)
     entries_in_val_are_ints: bool = all(isinstance(i, int) for i in val)
     brv_powers: _List[int]
@@ -403,7 +537,7 @@ def _is_ntt_poly_mult_valid(f: _List[int], g: _List[int], mod: int, brv_powers: 
     brv_powers_is_list = isinstance(brv_powers, list)
     f_and_g_are_ints = all(isinstance(i, int) for i in f+g)
     f_and_g_have_len_deg = len(f) == len(g) == deg
-    have_prou = is_ntt_friendly(mod=mod, deg=deg)
+    have_prou = _is_ntt_friendly(mod=mod, deg=deg)
     powers: _List[int] = brv_copy(val=brv_powers)
     root: int = powers[1]
     inv_root: int = pow(base=root, exp=mod - 2, mod=mod)

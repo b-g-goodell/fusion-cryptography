@@ -4,7 +4,7 @@ from secrets import randbelow
 from algebra.ntt import (
     _is_odd_prime,
     _is_pos_pow_two,
-    is_ntt_friendly,
+    _is_ntt_friendly,
     _brv_indices,
     brv_copy,
     _brv_root_and_inv_root_powers,
@@ -173,7 +173,7 @@ def test_is_odd_prime(number, expected_result):
 
 @pytest.mark.parametrize('modulus, degree, expected_result', HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA)
 def test_has_prou(modulus, degree, expected_result):
-    assert is_ntt_friendly(mod=modulus, deg=degree) == expected_result
+    assert _is_ntt_friendly(mod=modulus, deg=degree) == expected_result
 
 
 @pytest.mark.parametrize('number, expected_result', IS_POS_POW_TWO_TEST_CASES)
@@ -229,7 +229,7 @@ def test_cooley_tukey(modulus, deg, root, root_inv, root_powers, bit_rev_root_po
 
 @pytest.mark.parametrize('deg, mod', PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE)
 def test_random_poly_mul(deg, mod):
-    assert is_ntt_friendly(mod=mod, deg=deg)
+    assert _is_ntt_friendly(mod=mod, deg=deg)
     root = find_prou(mod=mod, deg=deg)
     inv_root = pow(base=root, exp=mod - 2, mod=mod)
     root_powers = [pow(base=root, exp=i, mod=mod) for i in range(2 * deg + 1)]

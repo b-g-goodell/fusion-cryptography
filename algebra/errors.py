@@ -4,6 +4,7 @@
 _MUST_BE_INT_ERR: str = "must be int"
 _MUST_BE_LIST_ERR: str = "must be list"
 _MUST_BE_LIST_W_POW_2_LEN_ERR: str = "must be list with length a power of 2"
+_MUST_BE_POS_INT_POW_2_ERR: str = "must be positive int that is a power of 2"
 _MUST_BE_POS_INT_ERR: str = "must be positive int"
 _MUST_BE_INT_GEQ_3_ERR: str = "must be int >= 3"
 _MUST_BE_HALF_FLOORED_ERR: str = "must be floored half"
@@ -17,6 +18,7 @@ _MUST_BE_CORRECT_INVERSE_ROOT_ERR: str = "must be correct inverse root"
 _DEGREE_MISMATCH_ERR: str = "degree mismatch"
 _MUST_CONSTRUCT_BRV_POWERS_CORRECTLY_ERR: str = "must construct bit reverse powers correctly"
 _INVALID_NTT_INPUT_ERR: str = "invalid ntt input"
+
 
 # For algebra/polynomials.py
 _TYPE_MISMATCH_ERR: str = "type mismatch"
@@ -37,3 +39,4 @@ _MUST_BE_NONEMPTY_ERR: str = "must be nonempty"
 _DIMENSION_MISMATCH_ERR: str = "dimension mismatch"
 _COEFS_NORM_WEIGHT_METHOD_MISSING_ERR: str = "matrix elements must have a coefs_norm_weight method"
 _MUST_BE_TUPLE_ERR: str = "must be tuple"
+
