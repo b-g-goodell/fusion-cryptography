@@ -138,11 +138,24 @@ def _is_ntt_friendly(mod: int, deg: int) -> bool:
 
 # Functionality
 # find_prou - find a primitive root of unity
+_GENERAL_FIND_PROU_ERR: str = "find prou validation error"
 _NOT_NTT_FRIENDLY_ERR: str = "degree-modulus pair not ntt-friendly"
 
 
 class FindProuError(Exception):
+    def __init__(self, message: str = _GENERAL_FIND_PROU_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class FindProuMustBeNTTFriendlyError(FindProuError):
     def __init__(self, message: str = _NOT_NTT_FRIENDLY_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class FindProuNoProuFoundError(FindProuError):
+    def __init__(self, message: str = _NO_PROU_FOUND_ERR) -> None:
         self.message = message
         super().__init__(message)
 
@@ -158,7 +171,7 @@ def _check_find_prou(mod: int, deg: int):
     :raises MustHaveProuError: If mod and deg are not ntt-friendly.
     """
     if not _is_ntt_friendly(mod=mod, deg=deg):
-        raise FindProuError
+        raise FindProuMustBeNTTFriendlyError
 
 
 def _find_prou(mod: int, deg: int) -> int:
@@ -180,7 +193,7 @@ def _find_prou(mod: int, deg: int) -> int:
         while r < mod and not _is_prou(root=r, mod=mod, deg=deg):
             r += 1
         if r is None or not _is_prou(root=r, mod=mod, deg=deg):
-            raise RuntimeError(_NO_PROU_FOUND_ERR)
+            raise FindProuNoProuFoundError
         _FIND_PROU_CACHE[(mod, deg)] = r
     return _FIND_PROU_CACHE[(mod, deg)]
 
@@ -333,7 +346,40 @@ def brv_copy(val: list) -> list:
     _check_brv_copy(val=val)
     return _brv_copy(val=val)
 
-# brv_root_and_inv_root_powers
+
+# _brv_root_and_inv_root_powers
+_GENERAL_BRV_ROOT_AND_INV_ROOT_POWERS_ERR: str = "BRV root and inv root powers validation error"
+
+
+class BRVRootAndInvRootPowers(Exception):
+    def __init__(self, message: str = _GENERAL_BRV_ROOT_AND_INV_ROOT_POWERS_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class BRVRootAndInvRootMustBeNTTFriendlyError(BRVRootAndInvRootPowers):
+    def __init__(self, message: str = _NOT_NTT_FRIENDLY_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _check_brv_root_and_inv_root_powers(deg: int, mod: int):
+    if not _is_ntt_friendly(mod=mod, deg=deg):
+        raise BRVRootAndInvRootMustBeNTTFriendlyError
+
+
+def __brv_root_and_inv_root_powers(deg: int, mod: int) -> _Tuple[_List[int], _List[int]]:
+    if (deg, mod) not in _BRV_ROOTS_AND_INV_ROOTS_CACHE:
+        root: int = find_prou(mod=mod, deg=deg)
+        inv_root: int = pow(base=root, exp=mod - 2, mod=mod)
+        powers: _List[int] = [pow(base=root, exp=i, mod=mod) for i in range(deg)]
+        inv_powers: _List[int] = [pow(base=inv_root, exp=i, mod=mod) for i in range(deg)]
+        brv_powers: _List[int] = brv_copy(val=powers)
+        brv_inv_powers: _List[int] = brv_copy(val=inv_powers)
+        _BRV_ROOTS_AND_INV_ROOTS_CACHE[(deg, mod)] = (brv_powers, brv_inv_powers)
+    return _BRV_ROOTS_AND_INV_ROOTS_CACHE[(deg, mod)]
+
+
 def _brv_root_and_inv_root_powers(deg: int, mod: int) -> _Tuple[_List[int], _List[int]]:
     """
     Private, cached function for computing the primitive root of unity of order 2*deg modulo mod and its inverse, and
@@ -347,17 +393,29 @@ def _brv_root_and_inv_root_powers(deg: int, mod: int) -> _Tuple[_List[int], _Lis
     :rtype: Tuple[List[int], List[int]]
     :raises ValueError: If mod and deg are not ntt-friendly.
     """
-    if not _is_ntt_friendly(mod=mod, deg=deg):
-        raise ValueError(_NOT_NTT_FRIENDLY_ERR)
-    elif (deg, mod) not in _BRV_ROOTS_AND_INV_ROOTS_CACHE:
-        root: int = find_prou(mod=mod, deg=deg)
-        inv_root: int = pow(base=root, exp=mod-2, mod=mod)
-        powers: _List[int] = [pow(base=root, exp=i, mod=mod) for i in range(deg)]
-        inv_powers: _List[int] = [pow(base=inv_root, exp=i, mod=mod) for i in range(deg)]
-        brv_powers: _List[int] = brv_copy(val=powers)
-        brv_inv_powers: _List[int] = brv_copy(val=inv_powers)
-        _BRV_ROOTS_AND_INV_ROOTS_CACHE[(deg, mod)] = (brv_powers, brv_inv_powers)
-    return _BRV_ROOTS_AND_INV_ROOTS_CACHE[(deg, mod)]
+    _check_brv_root_and_inv_root_powers(deg=deg, mod=mod)
+    return __brv_root_and_inv_root_powers(deg=deg, mod=mod)
+
+
+# _make_halfmod_logmod
+_GENERAL_MAKE_HALFMOD_LOGMOD_ERR: str = "make_halfmod_logmod validation error"
+
+
+class MakeHalfmodLogmodError(Exception):
+    def __init__(self, message: str = _GENERAL_MAKE_HALFMOD_LOGMOD_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class MakeHalfmodLogmodMustBePosIntError(MakeHalfmodLogmodError):
+    def __init__(self, message: str = _MUST_BE_POS_INT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _check_make_halfmod_logmod(mod: int):
+    if not isinstance(mod, int) or (isinstance(mod, int) and mod < 1):
+        raise MakeHalfmodLogmodMustBePosIntError
 
 
 def _make_halfmod_logmod(mod: int) -> _Tuple[int, int]:
@@ -371,6 +429,71 @@ def _make_halfmod_logmod(mod: int) -> _Tuple[int, int]:
     if mod not in _MOD_HALFMOD_LOGMOD_CACHE:
         _MOD_HALFMOD_LOGMOD_CACHE[mod] = (mod//2, mod.bit_length())
     return _MOD_HALFMOD_LOGMOD_CACHE[mod]
+
+
+def make_halfmod_logmod(mod: int) -> _Tuple[int, int]:
+    """
+    Public function for make a tuple containing mod//2 and mod.bit_length().
+    :param mod:
+    :type mod:
+    :return: A tuple containing mod//2 and mod.bit_length().
+    :rtype: Tuple[int, int]
+    :raises ValueError: If mod is not a positive integer.
+    """
+    _check_make_halfmod_logmod(mod=mod)
+    return _make_halfmod_logmod(mod=mod)
+
+
+# cent
+_GENERAL_CENT_ERR: str = "cent validation error"
+
+
+class CentError(Exception):
+    def __init__(self, message: str = _GENERAL_CENT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class CentMustBeIntError(CentError):
+    def __init__(self, message: str = _MUST_BE_INT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class CentMustBeOddPrimeError(CentError):
+    def __init__(self, message: str = _MUST_BE_ODD_PRIME_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _check_cent(val: int, mod: int):
+    if not isinstance(val, int):
+        raise CentMustBeIntError
+    elif not _is_odd_prime(val=mod):
+        raise CentMustBeOddPrimeError
+
+
+def _cent(val: int, mod: int) -> int:
+    """
+    Public function to centrally reduce a value modulo mod (where mod is an odd prime) in constant-time such that the
+    output satisfies -(mod//2) <= val <= mod//2.
+
+    :param val: An integer to be reduced modulo mod.
+    :type val: int
+    :param mod: A modulus to reduce val by.
+    :type mod: int
+    :return: The value of val reduced modulo mod.
+    :rtype: int
+    :raises TypeError: If val is not an integer.
+    :raises ValueError: If mod is not an odd prime.
+    """
+    halfmod: int
+    logmod: int
+    halfmod, logmod = _make_halfmod_logmod(mod=mod)
+    y: int = val % mod
+    w: int = y - halfmod - 1
+    z: int = y - (1 + (w >> logmod)) * mod
+    return z
 
 
 def cent(val: int, mod: int) -> int:
@@ -387,51 +510,53 @@ def cent(val: int, mod: int) -> int:
     :raises TypeError: If val is not an integer.
     :raises ValueError: If mod is not an odd prime.
     """
-    if not isinstance(val, int):
-        raise TypeError(_MUST_BE_INT_ERR)
-    elif not _is_odd_prime(val=mod):
-        raise ValueError(_MUST_BE_ODD_PRIME_ERR)
-    halfmod: int
-    logmod: int
-    halfmod, logmod = _make_halfmod_logmod(mod=mod)
-    y: int = val % mod
-    w: int = y - halfmod - 1
-    z: int = y - (1 + (w >> logmod)) * mod
-    return z
+    _check_cent(val=val, mod=mod)
+    return _cent(val=val, mod=mod)
 
 
-def _is_ntt_valid(val: _List[int], mod: int, inv_flag: bool) -> bool:
-    """
-    Private function for checking if input to NTT is valid.
+#
+_GENERAL_NTT_ERROR: str = "ntt validation error"
 
-    :param val: A list of integers.
-    :type val: list
-    :param mod: A modulus to check for having a primitive root of unity of order 2*deg.
-    :type mod: int
-    :param inv_flag: A flag indicating forward or inverse.
-    :type inv_flag: bool
-    :return: True if the input to NTT is valid, False otherwise.
-    :rtype: bool
-    """
-    val_is_list: bool = isinstance(val, list)
-    deg: int = len(val)
-    deg_mod_is_ntt_friendly: bool = _is_ntt_friendly(mod=mod, deg=deg)
-    inv_flag_is_bool: bool = isinstance(inv_flag, bool)
-    entries_in_val_are_ints: bool = all(isinstance(i, int) for i in val)
-    brv_powers: _List[int]
-    brv_powers, brv_inv_powers = _brv_root_and_inv_root_powers(deg=deg, mod=mod)
-    powers: _List[int] = brv_copy(val=brv_powers)
-    inv_powers: _List[int] = brv_copy(val=brv_inv_powers)
-    root: int = powers[1]
-    inv_root: int = pow(base=root, exp=mod-2, mod=mod)
-    has_correct_powers: bool = all(
-        (x-y) % mod == 0 for x, y in zip(powers, [pow(base=root, exp=i, mod=mod) for i in range(deg)]))
-    has_correct_inv_powers: bool = all(
-        (x-y) % mod == 0 for x, y in zip(inv_powers, [pow(base=inv_root, exp=i, mod=mod) for i in range(deg)]))
-    root_is_prou: bool = _is_prou(root=root, mod=mod, deg=deg)
-    has_correct_root_inverse: bool = _is_root_inverse(root=root, inv_root=inv_root, mod=mod)
-    return (val_is_list and deg_mod_is_ntt_friendly and inv_flag_is_bool and entries_in_val_are_ints and
-            has_correct_powers and has_correct_inv_powers and root_is_prou and has_correct_root_inverse)
+
+class NTTError(Exception):
+    def __init__(self, message: str = _GENERAL_NTT_ERROR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class NTTMustBeListError(NTTError):
+    def __init__(self, message: str = _MUST_BE_LIST_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class NTTMustBeIntError(NTTError):
+    def __init__(self, message: str = _MUST_BE_INT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class NTTMustBeBoolError(NTTError):
+    def __init__(self, message: str = _MUST_BE_INT_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class NTTMustBeNTTFriendlyError(NTTError):
+    def __init__(self, message: str = _NOT_NTT_FRIENDLY_ERR) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _check_ntt(val: list[int], mod: int, inv_flag: bool):
+    if not isinstance(val, list):
+        raise NTTMustBeListError
+    elif not all(isinstance(x, int) for x in val+[mod]):
+        raise NTTMustBeIntError
+    elif not isinstance(inv_flag, bool):
+        raise NTTMustBeBoolError
+    elif not _is_ntt_friendly(mod=mod, deg=len(val)):
+        raise NTTMustBeNTTFriendlyError
 
 
 def _cooley_tukey_ntt(val: _List[int], mod: int, brv_powers: _List[int]) -> _List[int]:
@@ -451,8 +576,6 @@ def _cooley_tukey_ntt(val: _List[int], mod: int, brv_powers: _List[int]) -> _Lis
     :rtype: List[int]
     :raises TypeError: If val is not ntt-friendly.
     """
-    if not _is_ntt_valid(val=val, mod=mod, inv_flag=False):
-        raise TypeError(_INVALID_NTT_INPUT_ERR)
     u: int
     v: int
     n: int = len(val)
@@ -489,8 +612,6 @@ def _gentleman_sande_intt(val: _List[int], mod: int, brv_powers: _List[int]) -> 
     :rtype: List[int]
     :raises TypeError: If val is not ntt-friendly.
     """
-    if not _is_ntt_valid(val=val, mod=mod, inv_flag=True):
-        raise TypeError(_INVALID_NTT_INPUT_ERR)
     u: int
     v: int
     n: int = len(val)
@@ -515,97 +636,7 @@ def _gentleman_sande_intt(val: _List[int], mod: int, brv_powers: _List[int]) -> 
     return val
 
 
-def _is_ntt_poly_mult_valid(f: _List[int], g: _List[int], mod: int, brv_powers: _List[int]):
-    """
-    Private function for checking if inputs to NTT polynomial multiplication are valid.
-
-    :param f: Coefficient representation of a polynomial (a list of integers).
-    :type f: List[int]
-    :param g: Coefficient representation of a polynomial (a list of integers).
-    :type g: List[int]
-    :param mod: A modulus to reduce val by.
-    :type mod: int
-    :param brv_powers: A list of powers of the primitive root of unity in bit-reversed order.
-    :type brv_powers: List[int]
-    :return: True if the inputs to NTT polynomial multiplication are valid, False otherwise.
-    :rtype: bool
-    """
-    deg: int = len(f)
-    f_is_list = isinstance(f, list)
-    g_is_list = isinstance(g, list)
-    mod_is_int = isinstance(mod, int)
-    brv_powers_is_list = isinstance(brv_powers, list)
-    f_and_g_are_ints = all(isinstance(i, int) for i in f+g)
-    f_and_g_have_len_deg = len(f) == len(g) == deg
-    have_prou = _is_ntt_friendly(mod=mod, deg=deg)
-    powers: _List[int] = brv_copy(val=brv_powers)
-    root: int = powers[1]
-    inv_root: int = pow(base=root, exp=mod - 2, mod=mod)
-    have_correct_root = _is_prou(root=root, mod=mod, deg=deg)
-    have_correct_inverse_root = _is_root_inverse(root=root, inv_root=inv_root, mod=mod)
-    ntt_is_valid_for_f = _is_ntt_valid(val=f, mod=mod, inv_flag=False)
-    ntt_is_valid_for_g = _is_ntt_valid(val=g, mod=mod, inv_flag=False)
-    return all([f_is_list, g_is_list, mod_is_int, brv_powers_is_list, f_and_g_are_ints, f_and_g_have_len_deg, have_prou,
-                have_correct_root, have_correct_inverse_root, ntt_is_valid_for_f, ntt_is_valid_for_g])
-
-
-def _ntt_poly_mult(f: _List[int], g: _List[int], mod: int, brv_powers: _List[int], brv_inv_root_powers: _List[int]) -> _List[int]:
-    """
-    Private function for multiplying two coefficient representations of polynomials by:
-         1. Compute the NTT transforms
-         2. Compute their Hadamard product.
-         3. Compute the inverse NTT transform.
-    Note that since _cooley_tukey_ntt and _gentleman_sande_intt are both in-place transformations, we change f and g
-    by calling this function.
-
-    :param f: Coefficient representation of a polynomial (a list of integers).
-    :type f: List[int]
-    :param g: Coefficient representation of a polynomial (a list of integers).
-    :type g: List[int]
-    :param mod: A modulus to reduce val by.
-    :type mod: int
-    :param brv_powers: A list of powers of the primitive root of unity in bit-reversed order.
-    :type brv_powers: List[int]
-    :param brv_inv_root_powers: A list of powers of the inverse of the primitive root of unity in bit-reversed order.
-    :type brv_inv_root_powers: List[int]
-    :return: The coefficient representation of the product of two polynomials.
-    :rtype: List[int]
-    :raises TypeError: If _is_ntt_poly_mult_valid returns False.
-    """
-    if not _is_ntt_poly_mult_valid(f=f, g=g, mod=mod, brv_powers=brv_powers):
-        raise TypeError(_INVALID_NTT_INPUT_ERR)
-    _cooley_tukey_ntt(val=f, mod=mod, brv_powers=brv_powers)
-    _cooley_tukey_ntt(val=g, mod=mod, brv_powers=brv_powers)
-    fg: _List[int] = [cent(val=x * y, mod=mod) for x, y in zip(f, g)]
-    _gentleman_sande_intt(val=fg, mod=mod, brv_powers=brv_inv_root_powers)
-    # Uncomment the following two lines (or make a deep copy before calling _ntt_poly_mult) to preserve f and g
-    _gentleman_sande_intt(val=f, mod=mod, brv_powers=brv_inv_root_powers)
-    _gentleman_sande_intt(val=g, mod=mod, brv_powers=brv_inv_root_powers)
-    return fg
-
-
-def ntt_poly_mult(f: _List[int], g: _List[int], mod: int) -> _List[int]:
-    """
-    Public wrapper of _ntt_poly_mult which infers deg from len(f), computes the powers of the primitive root of unity
-    and its inverse, and then calls _ntt_poly_mult.
-
-    :param f: Coefficient representation of a polynomial (a list of integers).
-    :type f: List[int]
-    :param g: Coefficient representation of a polynomial (a list of integers).
-    :type g: List[int]
-    :param mod: A modulus to reduce val by.
-    :type mod: int
-    :return: The coefficient representation of the product of two polynomials.
-    :rtype: List[int]
-    """
-    deg: int = len(f)
-    brv_powers: _List[int]
-    brv_inv_powers: _List[int]
-    brv_powers, brv_inv_powers = _brv_root_and_inv_root_powers(deg=deg, mod=mod)
-    return _ntt_poly_mult(f=f, g=g, mod=mod, brv_powers=brv_powers, brv_inv_root_powers=brv_inv_powers)
-
-
-def ntt(val: _List[int], mod: int, inv_flag: bool) -> _List[int]:
+def _ntt(val: _List[int], mod: int, inv_flag: bool) -> _List[int]:
     """
     Public wrapper for NTT/INTT transforms.
 
@@ -626,3 +657,103 @@ def ntt(val: _List[int], mod: int, inv_flag: bool) -> _List[int]:
     if not inv_flag:
         return _cooley_tukey_ntt(val=deepcopy_val, mod=mod, brv_powers=brv_powers)
     return _gentleman_sande_intt(val=deepcopy_val, mod=mod, brv_powers=brv_inv_powers)
+
+
+def ntt(val: list[int], mod: int, inv_flag: bool) -> list[int]:
+    _check_ntt(val=val, mod=mod, inv_flag=inv_flag)
+    return _ntt(val=val, mod=mod, inv_flag=inv_flag)
+
+
+
+
+
+#
+# def _is_ntt_poly_mult_valid(f: _List[int], g: _List[int], mod: int, brv_powers: _List[int]):
+#     """
+#     Private function for checking if inputs to NTT polynomial multiplication are valid.
+#
+#     :param f: Coefficient representation of a polynomial (a list of integers).
+#     :type f: List[int]
+#     :param g: Coefficient representation of a polynomial (a list of integers).
+#     :type g: List[int]
+#     :param mod: A modulus to reduce val by.
+#     :type mod: int
+#     :param brv_powers: A list of powers of the primitive root of unity in bit-reversed order.
+#     :type brv_powers: List[int]
+#     :return: True if the inputs to NTT polynomial multiplication are valid, False otherwise.
+#     :rtype: bool
+#     """
+#     deg: int = len(f)
+#     f_is_list = isinstance(f, list)
+#     g_is_list = isinstance(g, list)
+#     mod_is_int = isinstance(mod, int)
+#     brv_powers_is_list = isinstance(brv_powers, list)
+#     f_and_g_are_ints = all(isinstance(i, int) for i in f+g)
+#     f_and_g_have_len_deg = len(f) == len(g) == deg
+#     have_prou = _is_ntt_friendly(mod=mod, deg=deg)
+#     powers: _List[int] = brv_copy(val=brv_powers)
+#     root: int = powers[1]
+#     inv_root: int = pow(base=root, exp=mod - 2, mod=mod)
+#     have_correct_root = _is_prou(root=root, mod=mod, deg=deg)
+#     have_correct_inverse_root = _is_root_inverse(root=root, inv_root=inv_root, mod=mod)
+#     ntt_is_valid_for_f = _is_ntt_valid(val=f, mod=mod, inv_flag=False)
+#     ntt_is_valid_for_g = _is_ntt_valid(val=g, mod=mod, inv_flag=False)
+#     return all([f_is_list, g_is_list, mod_is_int, brv_powers_is_list, f_and_g_are_ints, f_and_g_have_len_deg, have_prou,
+#                 have_correct_root, have_correct_inverse_root, ntt_is_valid_for_f, ntt_is_valid_for_g])
+#
+#
+# def _ntt_poly_mult(f: _List[int], g: _List[int], mod: int, brv_powers: _List[int], brv_inv_root_powers: _List[int]) -> _List[int]:
+#     """
+#     Private function for multiplying two coefficient representations of polynomials by:
+#          1. Compute the NTT transforms
+#          2. Compute their Hadamard product.
+#          3. Compute the inverse NTT transform.
+#     Note that since _cooley_tukey_ntt and _gentleman_sande_intt are both in-place transformations, we change f and g
+#     by calling this function.
+#
+#     :param f: Coefficient representation of a polynomial (a list of integers).
+#     :type f: List[int]
+#     :param g: Coefficient representation of a polynomial (a list of integers).
+#     :type g: List[int]
+#     :param mod: A modulus to reduce val by.
+#     :type mod: int
+#     :param brv_powers: A list of powers of the primitive root of unity in bit-reversed order.
+#     :type brv_powers: List[int]
+#     :param brv_inv_root_powers: A list of powers of the inverse of the primitive root of unity in bit-reversed order.
+#     :type brv_inv_root_powers: List[int]
+#     :return: The coefficient representation of the product of two polynomials.
+#     :rtype: List[int]
+#     :raises TypeError: If _is_ntt_poly_mult_valid returns False.
+#     """
+#     if not _is_ntt_poly_mult_valid(f=f, g=g, mod=mod, brv_powers=brv_powers):
+#         raise TypeError(_INVALID_NTT_INPUT_ERR)
+#     _cooley_tukey_ntt(val=f, mod=mod, brv_powers=brv_powers)
+#     _cooley_tukey_ntt(val=g, mod=mod, brv_powers=brv_powers)
+#     fg: _List[int] = [cent(val=x * y, mod=mod) for x, y in zip(f, g)]
+#     _gentleman_sande_intt(val=fg, mod=mod, brv_powers=brv_inv_root_powers)
+#     # Uncomment the following two lines (or make a deep copy before calling _ntt_poly_mult) to preserve f and g
+#     _gentleman_sande_intt(val=f, mod=mod, brv_powers=brv_inv_root_powers)
+#     _gentleman_sande_intt(val=g, mod=mod, brv_powers=brv_inv_root_powers)
+#     return fg
+#
+#
+# def ntt_poly_mult(f: _List[int], g: _List[int], mod: int) -> _List[int]:
+#     """
+#     Public wrapper of _ntt_poly_mult which infers deg from len(f), computes the powers of the primitive root of unity
+#     and its inverse, and then calls _ntt_poly_mult.
+#
+#     :param f: Coefficient representation of a polynomial (a list of integers).
+#     :type f: List[int]
+#     :param g: Coefficient representation of a polynomial (a list of integers).
+#     :type g: List[int]
+#     :param mod: A modulus to reduce val by.
+#     :type mod: int
+#     :return: The coefficient representation of the product of two polynomials.
+#     :rtype: List[int]
+#     """
+#     deg: int = len(f)
+#     brv_powers: _List[int]
+#     brv_inv_powers: _List[int]
+#     brv_powers, brv_inv_powers = _brv_root_and_inv_root_powers(deg=deg, mod=mod)
+#     return _ntt_poly_mult(f=f, g=g, mod=mod, brv_powers=brv_powers, brv_inv_root_powers=brv_inv_powers)
+#
