@@ -24,7 +24,7 @@ import random
 import string
 from typing import List
 
-from fusion.fusion import (
+from crypto.fusion.fusion import (
     fusion_setup,
     fusion_keygen,
     fusion_sign,

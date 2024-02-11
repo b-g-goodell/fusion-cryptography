@@ -3,16 +3,16 @@ import os
 import random
 from math import ceil, log2
 
-from fusion.fusion import aggregate
-from fusion.fusion import fusion_setup
-from fusion.fusion import _make_agg_coefs
-from fusion.fusion import _hash_ch
-from fusion.fusion import _pre_hash_msg_to_int_digest
-from fusion.fusion import _hash_vk_and_pre_hashed_msg_to_bytes_digest
-from fusion.fusion import _hash_vks_and_ints_and_challs_to_bytes
-from fusion.fusion import fusion_keygen
-from fusion.fusion import fusion_sign
-from fusion.fusion import verify
+from crypto.fusion.fusion import aggregate
+from crypto.fusion.fusion import fusion_setup
+from crypto.fusion.fusion import _make_agg_coefs
+from crypto.fusion.fusion import _hash_ch
+from crypto.fusion.fusion import _pre_hash_msg_to_int_digest
+from crypto.fusion.fusion import _hash_vk_and_pre_hashed_msg_to_bytes_digest
+from crypto.fusion.fusion import _hash_vks_and_ints_and_challs_to_bytes
+from crypto.fusion.fusion import fusion_keygen
+from crypto.fusion.fusion import fusion_sign
+from crypto.fusion.fusion import verify
 
 print()
 # directory to save KAT files

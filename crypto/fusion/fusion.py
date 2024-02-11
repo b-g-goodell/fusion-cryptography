@@ -1,15 +1,12 @@
 from hashlib import shake_256, sha3_256
 from math import ceil, log2
 from typing import List, Dict, Tuple, Union
-from algebra.sampling import sample_matrix_by_coefs, sample_matrix_by_ntt
-from algebra.errors import (_MODULUS_MISMATCH_ERR, _DEGREE_MISMATCH_ERR, _ROOT_ORDER_MISMATCH_ERR, _ROOT_MISMATCH_ERR,
-                            _DIMENSION_MISMATCH_ERR, _INV_ROOT_MISMATCH_ERR)
-from fusion.errors import (_MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR,
-                           _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR,
-                           _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR)
-from api.errors import DIMENSION_MISMATCH_ERR
-from algebra.polynomials import Polynomial as Poly
-from algebra.matrices import PolynomialMatrix as Matrix
+from sampling.sampling import sample_matrix_by_coefs, sample_matrix_by_ntt
+from crypto.fusion.errors import (_MUST_BE_MATRIX_ERR, _ELEM_CLASS_MISMATCH_ERR, _NORM_TOO_LARGE_ERR, _KEYS_NOT_VALID_ERR,
+                                  _WGHT_TOO_LARGE_ERR, _MUST_BE_POLY_ERR, _PARAMS_MISMATCH_ERR, _CHALL_NOT_VALID_ERR,
+                                  _LENGTH_MISMATCH, _AGG_COEFS_NOT_VALID_ERR, _MUST_BE_PARAMS_ERR)
+from algebra.polynomials import _Polynomial as Poly
+from algebra.matrices import _PolynomialMatrix as Matrix
 
 
 # Some global constants
@@ -236,15 +233,15 @@ class OneTimeSigningKey(object):
             for f in next_row:
                 if not isinstance(f, Poly):
                     raise TypeError(_MUST_BE_POLY_ERR)
-                elif f.ntt_rep.modulus != params.modulus:
+                elif f._ntt_rep.modulus != params.modulus:
                     raise ValueError(_MODULUS_MISMATCH_ERR)
-                elif f.ntt_rep.deg != params.degree:
+                elif f._ntt_rep.deg != params.degree:
                     raise ValueError(_DEGREE_MISMATCH_ERR)
-                elif f.ntt_rep.root_order != params.root_order:
+                elif f._ntt_rep.root_order != params.root_order:
                     raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
-                elif f.ntt_rep.root != params.root:
+                elif f._ntt_rep.root != params.root:
                     raise ValueError(_ROOT_MISMATCH_ERR)
-                elif f.ntt_rep.inv_root != params.inv_root:
+                elif f._ntt_rep.inv_root != params.inv_root:
                     raise ValueError(_INV_ROOT_MISMATCH_ERR)
                 _, n, w = f.coef_norm_wght
                 if n > params.beta_sk:
@@ -297,15 +294,15 @@ class OneTimeVerificationKey(object):
             for next_poly in next_row:
                 if not isinstance(next_poly, Poly):
                     raise TypeError(_MUST_BE_POLY_ERR)
-                elif next_poly.ntt_rep.modulus != params.modulus:
+                elif next_poly._ntt_rep.modulus != params.modulus:
                     raise ValueError(_MODULUS_MISMATCH_ERR)
-                elif next_poly.ntt_rep.deg != params.degree or len(next_poly.ntt_rep._vals) != params.degree:
+                elif next_poly._ntt_rep.deg != params.degree or len(next_poly._ntt_rep._vals) != params.degree:
                     raise ValueError(_DEGREE_MISMATCH_ERR)
-                elif next_poly.ntt_rep.root_order != params.root_order:
+                elif next_poly._ntt_rep.root_order != params.root_order:
                     raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
-                elif next_poly.ntt_rep.root != params.root:
+                elif next_poly._ntt_rep.root != params.root:
                     raise ValueError(_ROOT_MISMATCH_ERR)
-                elif next_poly.ntt_rep.inv_root != params.inv_root:
+                elif next_poly._ntt_rep.inv_root != params.inv_root:
                     raise ValueError(_INV_ROOT_MISMATCH_ERR)
         self._params = params
         self._left = left
@@ -372,15 +369,15 @@ class Challenge(object):
     def __init__(self, params: Params, val: Poly):
         if not isinstance(val, Poly):
             raise TypeError(_MUST_BE_POLY_ERR)
-        elif val.ntt_rep.modulus != params.modulus:
+        elif val._ntt_rep.modulus != params.modulus:
             raise ValueError(_MODULUS_MISMATCH_ERR)
-        elif val.ntt_rep.deg != params.degree or len(val.ntt_rep._vals) != params.degree:
+        elif val._ntt_rep.deg != params.degree or len(val._ntt_rep._vals) != params.degree:
             raise ValueError(_DEGREE_MISMATCH_ERR)
-        elif val.ntt_rep.root_order != params.root_order:
+        elif val._ntt_rep.root_order != params.root_order:
             raise ValueError(_ROOT_ORDER_MISMATCH_ERR)
-        elif val.ntt_rep.root != params.root:
+        elif val._ntt_rep.root != params.root:
             raise ValueError(_ROOT_MISMATCH_ERR)
-        elif val.ntt_rep.inv_root != params.inv_root:
+        elif val._ntt_rep.inv_root != params.inv_root:
             raise ValueError(_INV_ROOT_MISMATCH_ERR)
         elif not isinstance(params, Params):
             raise TypeError(_MUST_BE_PARAMS_ERR)

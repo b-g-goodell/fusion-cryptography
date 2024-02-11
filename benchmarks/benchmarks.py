@@ -9,7 +9,7 @@ from loguru import logger
 
 from memory_profiler import memory_usage
 
-from fusion.fusion import fusion_setup, fusion_keygen, fusion_sign, aggregate, verify, OneTimeKey
+from crypto.fusion.fusion import fusion_setup, fusion_keygen, fusion_sign, aggregate, verify, OneTimeKey
 
 # Prepare the input data
 SEC_PARAMS: List[int] = [128, 256]

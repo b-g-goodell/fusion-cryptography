@@ -4,19 +4,19 @@ from secrets import randbelow
 from algebra.ntt import (
     _is_odd_prime,
     _is_pos_pow_two,
-    is_ntt_friendly,
+    _is_ntt_friendly,
     _brv_indices,
-    brv_copy,
+    _brv_copy,
     _brv_root_and_inv_root_powers,
-    cent,
+    _cent,
     _is_rou,
     _is_prou,
-    find_prou,
+    _find_prou,
     _cooley_tukey_ntt,
     _gentleman_sande_intt,
     _ntt_poly_mult,
-    ntt
 )
+# from fusion_api.algebra import ntt, ntt_poly_mult, cent, find_prou, is_ntt_friendly
 from copy import deepcopy
 
 SAMPLE_SIZE: int = 2 ** 10
@@ -50,7 +50,7 @@ for log2d in range(LOG2_D_MIN, LOG2_D_MAX + 1):
             tmp_q += 2 * tmp_d
         if _is_odd_prime(tmp_q) and tmp_q < Q_MAX:
             PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE.append((tmp_d, tmp_q))
-            find_prou(mod=tmp_q, deg=tmp_d)
+            _find_prou(mod=tmp_q, deg=tmp_d)
             tmp_q *= 2
             tmp_q -= (tmp_q - 1) % (2 * tmp_d)
             assert (tmp_q - 1) % (2 * tmp_d) == 0
@@ -106,16 +106,16 @@ COOLEY_TUKEY_NTT_TEST_DATA = [
 ]
 COOLEY_TUKEY_NTT_TEST_DATA = [
     t + tuple([
-        find_prou(mod=t[0], deg=t[1])
+        _find_prou(mod=t[0], deg=t[1])
     ])
     for t in COOLEY_TUKEY_NTT_TEST_DATA
 ]
 COOLEY_TUKEY_NTT_TEST_DATA = [
     t + tuple([
         pow(base=t[-1], exp=t[0]-2, mod=t[0]),
-        brv_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[0]),
+        _brv_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[0]),
         _brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[0],
-        brv_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[1]),
+        _brv_copy(val=_brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[1]),
         _brv_root_and_inv_root_powers(deg=t[1], mod=t[0])[1]
     ])
     for t in COOLEY_TUKEY_NTT_TEST_DATA
@@ -131,40 +131,7 @@ COOLEY_TUKEY_NTT_TEST_DATA = [
     COOLEY_TUKEY_NTT_TEST_DATA[0] + tuple([[0, 0, 0, 0, 0, 0, 1, 0], [-2, -2, 2, 2, -8, -8, 8, 8]]),
     COOLEY_TUKEY_NTT_TEST_DATA[0] + tuple([[0, 0, 0, 0, 0, 0, 0, 1], [-6, 6, -7, 7, 5, -5, 3, -3]]),
 ]
-TEST_NTT_DATA = [
-    (17, [1, 0, 0, 0, 0, 0, 0, 0], False, [1, 1, 1, 1, 1, 1, 1, 1],
-     ntt(val=[1, 0, 0, 0, 0, 0, 0, 0], mod=17, inv_flag=False)),
-    (17, [0, 1, 0, 0, 0, 0, 0, 0], False, [3,-3,5,-5,-7,7,-6,6],
-     ntt(val=[0, 1, 0, 0, 0, 0, 0, 0], mod=17, inv_flag=False)),
-    (17, [0, 0, 1, 0, 0, 0, 0, 0], False, [-8,-8,8,8,-2,-2,2,2],
-     ntt(val=[0, 0, 1, 0, 0, 0, 0, 0], mod=17, inv_flag=False)),
-    (17, [0, 0, 0, 1, 0, 0, 0, 0], False, [-7,7,6,-6,-3,3,5,-5],
-     ntt(val=[0, 0, 0, 1, 0, 0, 0, 0], mod=17, inv_flag=False)),
-    (17, [0, 0, 0, 0, 1, 0, 0, 0], False, [-4,-4,-4,-4,4,4,4,4],
-     ntt(val=[0, 0, 0, 0, 1, 0, 0, 0], mod=17, inv_flag=False)),
-    (17, [0, 0, 0, 0, 0, 1, 0, 0], False, [5, -5, -3, 3, 6, -6, -7, 7],
-     ntt(val=[0, 0, 0, 0, 0, 1, 0, 0], mod=17, inv_flag=False)),
-    (17, [0, 0, 0, 0, 0, 0, 1, 0], False, [-2, -2, 2, 2, -8, -8, 8, 8],
-     ntt(val=[0, 0, 0, 0, 0, 0, 1, 0], mod=17, inv_flag=False)),
-    (17, [0, 0, 0, 0, 0, 0, 0, 1], False, [-6, 6, -7, 7, 5, -5, 3, -3],
-     ntt(val=[0, 0, 0, 0, 0, 0, 0, 1], mod=17, inv_flag=False)),
-    (17, [1, 1, 1, 1, 1, 1, 1, 1], True, [1, 0, 0, 0, 0, 0, 0, 0],
-     ntt(val=[1, 1, 1, 1, 1, 1, 1, 1], mod=17, inv_flag=True)),
-    (17, [3,-3,5,-5,-7,7,-6,6], True, [0, 1, 0, 0, 0, 0, 0, 0],
-     ntt(val=[3, -3, 5, -5, -7, 7, -6, 6], mod=17, inv_flag=True)),
-    (17, [-8,-8,8,8,-2,-2,2,2], True, [0, 0, 1, 0, 0, 0, 0, 0],
-     ntt(val=[-8, -8, 8, 8, -2, -2, 2, 2], mod=17, inv_flag=True)),
-    (17, [-7,7,6,-6,-3,3,5,-5], True, [0, 0, 0, 1, 0, 0, 0, 0],
-     ntt(val=[-7, 7, 6, -6, -3, 3, 5, -5], mod=17, inv_flag=True)),
-    (17, [-4,-4,-4,-4,4,4,4,4], True, [0, 0, 0, 0, 1, 0, 0, 0],
-     ntt(val=[-4, -4, -4, -4, 4, 4, 4, 4], mod=17, inv_flag=True)),
-    (17, [5, -5, -3, 3, 6, -6, -7, 7], True, [0, 0, 0, 0, 0, 1, 0, 0],
-     ntt(val=[5, -5, -3, 3, 6, -6, -7, 7], mod=17, inv_flag=True)),
-    (17, [-2, -2, 2, 2, -8, -8, 8, 8], True, [0, 0, 0, 0, 0, 0, 1, 0],
-     ntt(val=[-2, -2, 2, 2, -8, -8, 8, 8], mod=17, inv_flag=True)),
-    (17, [-6, 6, -7, 7, 5, -5, 3, -3], True, [0, 0, 0, 0, 0, 0, 0, 1],
-     ntt(val=[-6, 6, -7, 7, 5, -5, 3, -3], mod=17, inv_flag=True)),
-]
+
 
 @pytest.mark.parametrize('number, expected_result', IS_ODD_PRIME_TEST_DATA)
 def test_is_odd_prime(number, expected_result):
@@ -173,7 +140,7 @@ def test_is_odd_prime(number, expected_result):
 
 @pytest.mark.parametrize('modulus, degree, expected_result', HAS_PRIMITIVE_ROOT_OF_UNITY_TEST_DATA)
 def test_has_prou(modulus, degree, expected_result):
-    assert is_ntt_friendly(mod=modulus, deg=degree) == expected_result
+    assert _is_ntt_friendly(mod=modulus, deg=degree) == expected_result
 
 
 @pytest.mark.parametrize('number, expected_result', IS_POS_POW_TWO_TEST_CASES)
@@ -182,7 +149,7 @@ def test_is_pos_pow_two(number, expected_result):
 
 
 @pytest.mark.parametrize('list_len, expected_result, observed_result', BIT_REVERSE_COPY_TEST_DATA)
-def test_bit_reverse_len_to_idxs(list_len, expected_result, observed_result):
+def test_bit_reverse_len_to_indices(list_len, expected_result, observed_result):
     assert expected_result == observed_result
 
 
@@ -202,7 +169,7 @@ def test_is_primitive_root_of_unity(val, modulus, degree, expected_value):
 
 @pytest.mark.parametrize('modulus, deg, expected_value', FIND_PRIMITIVE_ROOT_TEST_DATA)
 def test_find_primitive_root(modulus, deg, expected_value):
-    assert find_prou(mod=modulus, deg=deg) == expected_value
+    assert _find_prou(mod=modulus, deg=deg) == expected_value
 
 
 def test_is_root_inverse():
@@ -215,27 +182,28 @@ def test_is_ntt_valid():
 
 @pytest.mark.parametrize('val, modulus, expected_value', CENT_TEST_DATA)
 def test_cent(val, modulus, expected_value):
-    assert cent(val=val, mod=modulus) == expected_value
+    assert _cent(val=val, mod=modulus) == expected_value
 
 
 @pytest.mark.parametrize(
-    'modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, inv_root_powers, bit_rev_inv_root_powers, val, expected_val',
-    COOLEY_TUKEY_NTT_TEST_DATA)
-def test_cooley_tukey(modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, inv_root_powers, bit_rev_inv_root_powers, val, expected_val):
-    dcval = deepcopy(val)
-    observed_val = _cooley_tukey_ntt(val=dcval, mod=modulus, brv_powers=bit_rev_root_powers)
+    'modulus,deg,root,root_inv,root_powers,bit_rev_root_powers,inv_root_powers,bit_rev_inv_root_powers,' +
+    'val,expected_val', COOLEY_TUKEY_NTT_TEST_DATA)
+def test_cooley_tukey(modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, inv_root_powers,
+                      bit_rev_inv_root_powers, val, expected_val):
+    deepcopy_val = deepcopy(val)
+    observed_val = _cooley_tukey_ntt(val=deepcopy_val, mod=modulus, brv_powers=bit_rev_root_powers)
     assert all((x - y) % modulus == 0 for x, y in zip(observed_val, expected_val))
 
 
 @pytest.mark.parametrize('deg, mod', PAIRS_OF_D_AND_Q_FORCING_ROU_EXISTENCE)
 def test_random_poly_mul(deg, mod):
-    assert is_ntt_friendly(mod=mod, deg=deg)
-    root = find_prou(mod=mod, deg=deg)
+    assert _is_ntt_friendly(mod=mod, deg=deg)
+    root = _find_prou(mod=mod, deg=deg)
     inv_root = pow(base=root, exp=mod - 2, mod=mod)
     root_powers = [pow(base=root, exp=i, mod=mod) for i in range(2 * deg + 1)]
     inv_root_powers = [pow(base=inv_root, exp=i, mod=mod) for i in range(2 * deg + 1)]
-    brv_powers = brv_copy(root_powers[:deg])
-    brv_inv_root_powers = brv_copy(inv_root_powers[:deg])
+    brv_powers = _brv_copy(root_powers[:deg])
+    brv_inv_root_powers = _brv_copy(inv_root_powers[:deg])
 
     for _ in range(SAMPLE_SIZE):
         left_factor = [randbelow(mod) for _ in range(deg)]
@@ -246,27 +214,22 @@ def test_random_poly_mul(deg, mod):
                 exp_product_from_foil[i + j] += a * b % mod
         exp_product_from_foil = [(x - y) % mod for x, y in
                                  zip(exp_product_from_foil[:deg], exp_product_from_foil[deg:])]
-        obs_prod_from_ntt_poly_mult = _ntt_poly_mult(f=left_factor, g=right_factor, mod=mod, brv_powers=brv_powers, brv_inv_root_powers=brv_inv_root_powers)
+        obs_prod_from_ntt_poly_mult = _ntt_poly_mult(
+            f=left_factor, g=right_factor, mod=mod, brv_powers=brv_powers, brv_inv_root_powers=brv_inv_root_powers)
         assert all((x - y) % mod == 0 for x, y in zip(obs_prod_from_ntt_poly_mult, exp_product_from_foil))
 
 
 # Integration test
 @pytest.mark.parametrize(
-    'modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, inv_root_powers, bit_rev_inv_root_powers, val, expected_val',
-    COOLEY_TUKEY_NTT_TEST_DATA)
-def test_ct_gs_inverse(modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, inv_root_powers, bit_rev_inv_root_powers, val, expected_val):
+    'modulus,deg,root,root_inv,root_powers,bit_rev_root_powers,inv_root_powers,bit_rev_inv_root_powers,' +
+    'val,expected_val', COOLEY_TUKEY_NTT_TEST_DATA)
+def test_ct_gs_inverse(modulus, deg, root, root_inv, root_powers, bit_rev_root_powers, inv_root_powers,
+                       bit_rev_inv_root_powers, val, expected_val):
     x = deepcopy(val)
     y = deepcopy(x)
     _cooley_tukey_ntt(val=x, mod=modulus, brv_powers=bit_rev_root_powers)
     assert x != y
     inv_root_powers = [pow(base=root_inv, exp=i, mod=modulus) for i in range(deg)]
-    brv_inv_root_powers = brv_copy(inv_root_powers)
+    brv_inv_root_powers = _brv_copy(inv_root_powers)
     _gentleman_sande_intt(val=x, mod=modulus, brv_powers=brv_inv_root_powers)
     assert x == y
-
-
-@pytest.mark.parametrize("modulus, val, inv_flag, expected_result, observed_result", TEST_NTT_DATA)
-def test_ntt(modulus, val, inv_flag, expected_result, observed_result):
-    assert observed_result == expected_result
-    z = ntt(val=val, mod=modulus, inv_flag=inv_flag)
-    assert all((x-y) % modulus == 0 for x, y in zip(z, observed_result))

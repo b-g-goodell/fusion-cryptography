@@ -9,3 +9,18 @@ _CHALL_NOT_VALID_ERR: str = "signature challenge not valid"
 _LENGTH_MISMATCH: str = "length mismatch"
 _AGG_COEFS_NOT_VALID_ERR: str = "aggregation coefficients not valid"
 _MUST_BE_PARAMS_ERR: str = "must be params"
+
+
+class _ValidationError(Exception):
+    """Base class for validation errors."""
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+
+class _InvalidSecurityParameterError(Exception):
+    pass
+
+
+class _ParameterMismatchError(Exception):
+    pass
